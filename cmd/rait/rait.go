@@ -9,12 +9,22 @@ import (
 
 func main() {
 	app := &cli.App{
+		Name: "RAIT",
+		Usage: "Redundant Array of Inexpensive Tunnels",
 		Commands: []*cli.Command{
 			{
 				Name:  "up",
 				Usage: "time to take flight",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "config",
+						Aliases: []string{"c"},
+						Usage:   "Load configuration from `FILE`",
+						Required: true,
+					},
+				},
 				Action: func(c *cli.Context) error {
-					r, err := rait.NewRAITFromFile(c.Args().First())
+					r, err := rait.NewRAITFromFile(c.String("config"))
 					if err != nil {
 						return err
 					}
@@ -24,8 +34,16 @@ func main() {
 			{
 				Name:  "down",
 				Usage: "the big red button",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "prefix",
+						Aliases: []string{"p"},
+						Usage:   "Delete all wireguard links with prefix `PREFIX`",
+						Required: true,
+					},
+				},
 				Action: func(c *cli.Context) error {
-					return rait.DestroyLinks(c.Args().First())
+					return rait.DestroyLinks(c.String("prefix"))
 				},
 			},
 		},

@@ -7,6 +7,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
+	"path"
 	"strconv"
 )
 
@@ -139,7 +140,7 @@ func NewRAITFromFile(file string) (*RAIT, error) {
 		return nil, fmt.Errorf("failed to decode conf file: %v: %w", file, err)
 	}
 	var peers []*Peer
-	peers, err = NewPeersFromDir(raitFile.PeerDir)
+	peers, err = NewPeersFromDir(path.Join(path.Dir(file), raitFile.PeerDir))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load peers: %w", err)
 	}
