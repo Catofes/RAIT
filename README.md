@@ -1,5 +1,7 @@
 ## RAIT - Redundant Array of Inexpensive Tunnels
 
+Disclaimer: RAIT's purpose is to provide linklocal full-mesh connectivity between nodes, while the specific method of node discovery or routing is out-of-sope.
+
 ###### Configuration File Format
 
 ```toml
