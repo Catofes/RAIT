@@ -3,6 +3,7 @@
     <words>
       <w>fullpath</w>
       <w>ifname</w>
+      <w>ifprefix</w>
       <w>linklocal</w>
       <w>rait</w>
       <w>wireguard</w>

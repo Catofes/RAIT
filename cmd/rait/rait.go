@@ -9,7 +9,7 @@ import (
 
 func main() {
 	app := &cli.App{
-		Name: "RAIT",
+		Name:  "RAIT",
 		Usage: "Redundant Array of Inexpensive Tunnels",
 		Commands: []*cli.Command{
 			{
@@ -17,14 +17,26 @@ func main() {
 				Usage: "time to take flight",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:    "config",
-						Aliases: []string{"c"},
-						Usage:   "Load configuration from `FILE`",
+						Name:    "prefix",
+						Aliases: []string{"p"},
+						Usage:   "Wireguard links will be created with prefix `PREFIX`",
+						Value:   "rait",
+					},
+					&cli.StringFlag{
+						Name:     "config",
+						Aliases:  []string{"c"},
+						Usage:    "Load configuration from `FILE`",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:     "peers",
+						Aliases:  []string{"d"},
+						Usage:    "Load peers from `DIR`",
 						Required: true,
 					},
 				},
 				Action: func(c *cli.Context) error {
-					r, err := rait.NewRAITFromFile(c.String("config"))
+					r, err := rait.NewRAITFromFile(c.String("prefix"), c.String("config"), c.String("peers"))
 					if err != nil {
 						return err
 					}
@@ -39,7 +51,7 @@ func main() {
 						Name:    "prefix",
 						Aliases: []string{"p"},
 						Usage:   "Delete all wireguard links with prefix `PREFIX`",
-						Required: true,
+						Value:   "rait",
 					},
 				},
 				Action: func(c *cli.Context) error {

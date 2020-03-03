@@ -7,7 +7,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
-	"path"
 	"strconv"
 )
 
@@ -124,15 +123,13 @@ func (r *RAIT) SetupLinks() error {
 }
 
 type RAITFile struct {
-	IFPrefix   string
 	PrivateKey string
 	SendPort   int
 	Tags       map[string]string
 	TagPolicy  string
-	PeerDir    string
 }
 
-func NewRAITFromFile(file string) (*RAIT, error) {
+func NewRAITFromFile(ifprefix string, file string, dir string) (*RAIT, error) {
 	var raitFile RAITFile
 	var err error
 	_, err = toml.DecodeFile(file, &raitFile)
@@ -140,12 +137,9 @@ func NewRAITFromFile(file string) (*RAIT, error) {
 		return nil, fmt.Errorf("failed to decode conf file: %v: %w", file, err)
 	}
 	var peers []*Peer
-	if !path.IsAbs(raitFile.PeerDir) {
-		raitFile.PeerDir = path.Join(path.Dir(file), raitFile.PeerDir)
-	}
-	peers, err = NewPeersFromDir(raitFile.PeerDir)
+	peers, err = NewPeersFromDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load peers: %w", err)
 	}
-	return NewRAIT(raitFile.IFPrefix, raitFile.PrivateKey, raitFile.SendPort, raitFile.Tags, raitFile.TagPolicy, peers)
+	return NewRAIT(ifprefix, raitFile.PrivateKey, raitFile.SendPort, raitFile.Tags, raitFile.TagPolicy, peers)
 }

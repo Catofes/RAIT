@@ -4,10 +4,8 @@
 
 ```toml
 # rait.conf
-IFPrefix = "grv" # naming prefix to prepend to the wireguard interfaces
 PrivateKey = "4CReT4TKD4AO7mYz1V6SusU0XN5HCV52/x6rhqh6uGM=" # your wireguard private key
 SendPort = 50153 # as the name suggests
-PeerDir = "peers" # directory of the peer.conf(s) (relative to this file)
 # the fields bellow are optional
 TagPolicy = "different City; same Country" # to be implemented
 [Tags]
