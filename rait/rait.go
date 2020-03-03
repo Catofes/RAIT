@@ -140,7 +140,10 @@ func NewRAITFromFile(file string) (*RAIT, error) {
 		return nil, fmt.Errorf("failed to decode conf file: %v: %w", file, err)
 	}
 	var peers []*Peer
-	peers, err = NewPeersFromDir(path.Join(path.Dir(file), raitFile.PeerDir))
+	if !path.IsAbs(raitFile.PeerDir) {
+		raitFile.PeerDir = path.Join(path.Dir(file), raitFile.PeerDir)
+	}
+	peers, err = NewPeersFromDir(raitFile.PeerDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load peers: %w", err)
 	}
