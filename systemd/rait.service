@@ -1,0 +1,13 @@
+[Unit]
+Description=rait
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=rait up -c /root/local.conf
+ExecStop=rait down -p rait
+
+[Install]
+WantedBy=multi-user.target
+
