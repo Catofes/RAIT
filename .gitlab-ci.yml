@@ -1,0 +1,12 @@
+image: golang:latest
+
+stages:
+  - build
+
+compile:
+  stage: build
+  script:
+    - go build -o bin/rait cmd/rait/rait.go
+  artifacts:
+    paths:
+      - bin/
