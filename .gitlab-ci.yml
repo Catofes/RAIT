@@ -6,7 +6,7 @@ stages:
 compile:
   stage: build
   script:
-    - go install cmd/rait/rait.go -o bin/rait
+    - go build -o bin/rait cmd/rait/rait.go
   artifacts:
     paths:
       - bin/
