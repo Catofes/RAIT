@@ -1,11 +1,17 @@
 <component name="ProjectDictionaryState">
   <dictionary name="nickcao">
     <words>
+      <w>dirpath</w>
       <w>fullpath</w>
       <w>ifname</w>
       <w>ifprefix</w>
       <w>linklocal</w>
+      <w>peerconfig</w>
+      <w>pfile</w>
+      <w>privatekey</w>
+      <w>publickey</w>
       <w>rait</w>
+      <w>tomls</w>
       <w>wireguard</w>
     </words>
   </dictionary>

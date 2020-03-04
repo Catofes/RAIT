@@ -11,47 +11,56 @@ import (
 )
 
 type RAIT struct {
-	IFPrefix   string
 	PrivateKey *wgtypes.Key
 	PublicKey  *wgtypes.Key
 	SendPort   int
-	Tags       map[string]string
 	TagPolicy  string
-	Peers      []*Peer
+	Tags       map[string]string
 }
 
-func NewRAIT(ifPrefix string, privateKey string, port int, tags map[string]string, policy string, peers []*Peer) (*RAIT, error) {
-	var key wgtypes.Key
+type RAITConfig struct {
+	PrivateKey string
+	SendPort   int
+	TagPolicy  string            `json:",omitempty"`
+	Tags       map[string]string `json:",omitempty"`
+}
+
+func NewRAIT(config *RAITConfig) (*RAIT, error) {
+	var privatekey wgtypes.Key
 	var err error
-	key, err = wgtypes.ParseKey(privateKey)
+	privatekey, err = wgtypes.ParseKey(config.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
+		return nil, fmt.Errorf("failed to parse private privatekey: %w", err)
 	}
-	var publicKey wgtypes.Key
-	publicKey = key.PublicKey()
+	var publickey wgtypes.Key
+	publickey = privatekey.PublicKey()
 	return &RAIT{
-		IFPrefix:   ifPrefix,
-		PrivateKey: &key,
-		PublicKey:  &publicKey,
-		SendPort:   port,
-		Tags:       tags,
-		TagPolicy:  policy,
-		Peers:      peers,
+		PrivateKey: &privatekey,
+		PublicKey:  &publickey,
+		SendPort:   config.SendPort,
+		Tags:       config.Tags,
+		TagPolicy:  config.TagPolicy,
 	}, nil
 }
 
+func NewRAITFromToml(filepath string) (*RAIT, error) {
+	var config RAITConfig
+	var err error
+	_, err = toml.DecodeFile(filepath, &config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode rait config: %w", err)
+	}
+	return NewRAIT(&config)
+}
+
 func (r *RAIT) EvaluatePolicy(peer *Peer) bool {
-	//TODO: Decide the policy format
 	return true
 }
 
-func (r *RAIT) GetConfigs() []*wgtypes.Config {
+func (r *RAIT) WireguardConfigs(peers []*Peer) []*wgtypes.Config {
 	var configs []*wgtypes.Config
-	for _, peer := range r.Peers {
-		if *r.PublicKey == peer.PublicKey {
-			continue
-		}
-		if !r.EvaluatePolicy(peer) {
+	for _, peer := range peers {
+		if *r.PublicKey == peer.PublicKey || !r.EvaluatePolicy(peer) {
 			continue
 		}
 		var endpoint *net.UDPAddr
@@ -61,7 +70,7 @@ func (r *RAIT) GetConfigs() []*wgtypes.Config {
 				Port: r.SendPort,
 			}
 		}
-		peerConfig := wgtypes.PeerConfig{
+		peerconfig := wgtypes.PeerConfig{
 			PublicKey:         peer.PublicKey,
 			Remove:            false,
 			UpdateOnly:        false,
@@ -75,29 +84,32 @@ func (r *RAIT) GetConfigs() []*wgtypes.Config {
 			ListenPort:   &peer.SendPort,
 			FirewallMark: nil,
 			ReplacePeers: true,
-			Peers:        []wgtypes.PeerConfig{peerConfig},
+			Peers:        []wgtypes.PeerConfig{peerconfig},
 		}
 		configs = append(configs, config)
 	}
 	return configs
 }
 
-func (r *RAIT) SetupLinks() error {
-	handle, err := netlink.NewHandle()
+func (r *RAIT) SetupLinks(ifprefix string, peers []*Peer) error {
+	var handle *netlink.Handle
+	var err error
+	handle, err = netlink.NewHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get netlink handle: %w", err)
 	}
 	defer handle.Delete()
-	client, err := wgctrl.New()
+	var client *wgctrl.Client
+	client, err = wgctrl.New()
 	if err != nil {
 		return fmt.Errorf("failed to get wireguard client: %w", err)
 	}
 	defer client.Close()
-	configs := r.GetConfigs()
 
+	configs := r.WireguardConfigs(peers)
 	var counter = 0
 	for _, config := range configs {
-		ifname := r.IFPrefix + strconv.Itoa(counter)
+		ifname := ifprefix + strconv.Itoa(counter)
 		attrs := netlink.NewLinkAttrs()
 		attrs.Name = ifname
 		link := &netlink.Wireguard{attrs}
@@ -120,26 +132,4 @@ func (r *RAIT) SetupLinks() error {
 		counter++
 	}
 	return nil
-}
-
-type RAITFile struct {
-	PrivateKey string
-	SendPort   int
-	Tags       map[string]string
-	TagPolicy  string
-}
-
-func NewRAITFromFile(ifprefix string, file string, dir string) (*RAIT, error) {
-	var raitFile RAITFile
-	var err error
-	_, err = toml.DecodeFile(file, &raitFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode conf file: %v: %w", file, err)
-	}
-	var peers []*Peer
-	peers, err = NewPeersFromDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load peers: %w", err)
-	}
-	return NewRAIT(ifprefix, raitFile.PrivateKey, raitFile.SendPort, raitFile.Tags, raitFile.TagPolicy, peers)
 }

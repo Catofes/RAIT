@@ -16,58 +16,58 @@ type Peer struct {
 	Tags       map[string]string
 }
 
-func NewPeer(publicKey string, host string, port int, tags map[string]string) (*Peer, error) {
-	var key wgtypes.Key
+type PeerConfig struct {
+	PublicKey string
+	Endpoint  string `json:",omitempty"`
+	SendPort  int
+	Tags      map[string]string `json:",omitempty"`
+}
+
+func NewPeer(config *PeerConfig) (*Peer, error) {
+	var publickey wgtypes.Key
 	var err error
-	key, err = wgtypes.ParseKey(publicKey)
+	publickey, err = wgtypes.ParseKey(config.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse publickey: %v: %w", publicKey, err)
+		return nil, fmt.Errorf("failed to parse peer publickey: %w", err)
 	}
 	var ip *net.IP
-	if host != "" {
+	if config.Endpoint != "" {
 		var ips []net.IP
-		ips, err = net.LookupIP(host)
-		if err != nil || len(ips) == 0 {
-			return nil, fmt.Errorf("failed to resolve host: %v: %w", host, err)
+		ips, err = net.LookupIP(config.Endpoint)
+		if err != nil || len(ips) < 1 {
+			return nil, fmt.Errorf("failed to resolve peer endpoint: %w", err)
 		}
 		ip = &ips[0]
 	}
 	return &Peer{
-		PublicKey:  key,
+		PublicKey:  publickey,
 		EndpointIP: ip,
-		SendPort:   port,
-		Tags:       tags,
+		SendPort:   config.SendPort,
+		Tags:       config.Tags,
 	}, nil
 }
 
-type PeerFile struct {
-	PublicKey string
-	Endpoint  string
-	SendPort  int
-	Tags      map[string]string
-}
-
-func NewPeerFromFile(file string) (*Peer, error) {
-	var peerFile PeerFile
+func NewPeerFromToml(filepath string) (*Peer, error) {
+	var config PeerConfig
 	var err error
-	_, err = toml.DecodeFile(file, &peerFile)
+	_, err = toml.DecodeFile(filepath, &config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode peer file: %v: %w", file, err)
+		return nil, fmt.Errorf("failed to decode peer config: %w", err)
 	}
-	return NewPeer(peerFile.PublicKey, peerFile.Endpoint, peerFile.SendPort, peerFile.Tags)
+	return NewPeer(&config)
 }
 
-func NewPeersFromDir(dir string) ([]*Peer, error) {
+func LoadPeersFromTomls(dirpath string) ([]*Peer, error) {
 	var peers []*Peer
-	files, err := ioutil.ReadDir(dir)
+	files, err := ioutil.ReadDir(dirpath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list peers dir: %v: %w", dir, err)
+		return nil, fmt.Errorf("failed to list peer configs: %w", err)
 	}
 	for _, file := range files {
-		fullpath := path.Join(dir, file.Name())
-		peer, err := NewPeerFromFile(fullpath)
+		filepath := path.Join(dirpath, file.Name())
+		peer, err := NewPeerFromToml(filepath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load peer from file: %v: %w", fullpath, err)
+			return nil, fmt.Errorf("failed to load peer from toml file: %w", err)
 		}
 		peers = append(peers, peer)
 	}

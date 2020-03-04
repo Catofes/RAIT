@@ -1,9 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/NickCao/RAIT/rait"
-	"log"
+	"io/ioutil"
 	"os"
 )
 
@@ -25,7 +26,7 @@ func main() {
 					&cli.StringFlag{
 						Name:     "config",
 						Aliases:  []string{"c"},
-						Usage:    "Load configuration from `FILE`",
+						Usage:    "Load rait configuration from `FILE`",
 						Required: true,
 					},
 					&cli.StringFlag{
@@ -36,11 +37,45 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					r, err := rait.NewRAITFromFile(c.String("prefix"), c.String("config"), c.String("peers"))
+					var r *rait.RAIT
+					var p []*rait.Peer
+					var err error
+					r, err = rait.NewRAITFromToml(c.String("config"))
 					if err != nil {
 						return err
 					}
-					return r.SetupLinks()
+					p, err = rait.LoadPeersFromTomls(c.String("peers"))
+					if err != nil {
+						return err
+					}
+					return r.SetupLinks(c.String("prefix"), p)
+				},
+			},
+			{
+				Name:  "load",
+				Usage: "same as up, but from json and stdin (for programmatic invocations)",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "prefix",
+						Aliases: []string{"p"},
+						Usage:   "Wireguard links will be created with prefix `PREFIX`",
+						Value:   "rait",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					var r *rait.RAIT
+					var p []*rait.Peer
+					var data []byte
+					var err error
+					data, err = ioutil.ReadAll(os.Stdin)
+					if err != nil {
+						return nil
+					}
+					r, p, err = rait.LoadFromJSON(data)
+					if err != nil {
+						return nil
+					}
+					return r.SetupLinks(c.String("prefix"), p)
 				},
 			},
 			{
@@ -62,6 +97,6 @@ func main() {
 	}
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 }

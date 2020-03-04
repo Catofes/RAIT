@@ -1,6 +1,7 @@
 package rait
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/vishvananda/netlink"
 	"math/rand"
@@ -24,22 +25,25 @@ func RandomLinklocal() *netlink.Addr {
 		parts += fmt.Sprintf("%x", digits[i])
 		parts += fmt.Sprintf("%x", digits[i+1])
 	}
-	a, _ := netlink.ParseAddr("fe80:"+parts+"/64")
+	a, _ := netlink.ParseAddr("fe80:" + parts + "/64")
 	return a
 }
 
-func DestroyLinks(IFPrefix string) error {
-	handle, err := netlink.NewHandle()
+func DestroyLinks(ifprefix string) error {
+	var handle *netlink.Handle
+	var err error
+	handle, err = netlink.NewHandle()
 	if err != nil {
 		return fmt.Errorf("failed to get netlink handle: %w", err)
 	}
 	defer handle.Delete()
-	links, err := handle.LinkList()
+	var links []netlink.Link
+	links, err = handle.LinkList()
 	if err != nil {
 		return fmt.Errorf("failed to list links: %w", err)
 	}
 	for _, link := range links {
-		if strings.HasPrefix(link.Attrs().Name, IFPrefix) && link.Type() == "wireguard" {
+		if strings.HasPrefix(link.Attrs().Name, ifprefix) && link.Type() == "wireguard" {
 			err = handle.LinkDel(link)
 			if err != nil {
 				return fmt.Errorf("failed to delete link: %w", err)
@@ -47,4 +51,32 @@ func DestroyLinks(IFPrefix string) error {
 		}
 	}
 	return nil
+}
+
+type JSONConfig struct {
+	RAIT  RAITConfig   `json:"rait"`
+	Peers []PeerConfig `json:"peers"`
+}
+
+func LoadFromJSON(data []byte) (*RAIT, []*Peer, error) {
+	var config JSONConfig
+	var err error
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode json: %w", err)
+	}
+	var peers []*Peer
+	for _, peerconfig := range config.Peers {
+		peer, err := NewPeer(&peerconfig)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load peer: %w", err)
+		}
+		peers = append(peers, peer)
+	}
+	var rait *RAIT
+	rait, err = NewRAIT(&config.RAIT)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load rait: %w", err)
+	}
+	return rait, peers, nil
 }
