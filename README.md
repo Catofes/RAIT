@@ -5,24 +5,38 @@ Disclaimer: RAIT's purpose is to provide linklocal full-mesh connectivity betwee
 ###### Configuration File Format
 
 ```toml
-# rait.conf
-PrivateKey = "4CReT4TKD4AO7mYz1V6SusU0XN5HCV52/x6rhqh6uGM=" # your wireguard private key
-SendPort = 50153 # as the name suggests
+# rait.toml
+PrivateKey = <your wireguard private key>
+SendPort = <as the name suggests>
 # the fields bellow are optional
-TagPolicy = "different City; same Country" # to be implemented
+TagPolicy = <peering policy>
 [Tags]
-Name = "operator_hostname"
-Country = "CN"
-City = "SH"
+<key> = <value>
 
-# peer.conf
-PublicKey = "j8Fq5NN3snH3Xv4mjyIpaNpRkqNXu9q8oar9HcFRjxA=" # public key of the peer
-SendPort = 50144 # as the name suggests
+# peer.toml
+PublicKey = <public key of the peer>
+SendPort = <as the name suggests>
 # the fields bellow are optional
-Endpoint = "1.1.1.1" # the ip address or fqdn of the peer
+Endpoint = <the ip address or fqdn of the peer>
 [Tags]
-Name = "operator_hostname"
-Country = "US"
-City = "NYC"
+<key> = <value>
+```
+
+Additionally, the "rait load" subcommand accepts a json stream from stdin to load the equivalent config files in a programmatic way. The scheme of the json stream is documented below.
+
+```json
+{
+    "rait": {
+        ...
+    },
+    "peers": [
+        {
+            ...
+        },
+        {
+            ...
+        }
+    ]
+}
 ```
 
