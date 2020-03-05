@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 var _, IP4NetAll, _ = net.ParseCIDR("0.0.0.0/0")
@@ -21,6 +22,7 @@ func ConnectStdIO(cmd * exec.Cmd) *exec.Cmd{
 }
 
 func RandomLinklocal() *netlink.Addr {
+	rand.Seed(time.Now().UnixNano())
 	digits := []int{0x00, 0x16, 0x3e, rand.Intn(0x7f + 1), rand.Intn(0xff + 1), rand.Intn(0xff + 1)}
 	digits = append(digits, 0, 0)
 	copy(digits[5:], digits[3:])
