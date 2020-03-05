@@ -1,19 +1,18 @@
 stages:
-  - binary
-  - container
+  - build
 
-go-build:
+build:binary:
   image: golang:latest
-  stage: binary
+  stage: build
   script:
     - go build -o bin/rait cmd/rait/rait.go
   artifacts:
     paths:
       - bin/rait
 
-docker-build:
+build:container:
   image: docker:latest
-  stage: container
+  stage: build
   services:
     - docker:dind
   before_script:
