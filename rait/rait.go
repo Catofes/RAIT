@@ -7,6 +7,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
+	"os/exec"
 	"strconv"
 )
 
@@ -69,6 +70,13 @@ func (r *RAIT) WireguardConfigs(peers []*Peer) []*wgtypes.Config {
 				IP:   *peer.EndpointIP,
 				Port: r.SendPort,
 			}
+		} else {
+			// This is to make babeld happy
+			// fakeip := net.ParseIP("1.1.1.1")
+			// endpoint = &net.UDPAddr{
+			// 	   IP:   fakeip,
+			//     Port: r.SendPort,
+			// }
 		}
 		peerconfig := wgtypes.PeerConfig{
 			PublicKey:         peer.PublicKey,
@@ -110,12 +118,15 @@ func (r *RAIT) SetupLinks(ifprefix string, peers []*Peer) error {
 	var counter = 0
 	for _, config := range configs {
 		ifname := ifprefix + strconv.Itoa(counter)
-		attrs := netlink.NewLinkAttrs()
-		attrs.Name = ifname
-		link := &netlink.Wireguard{attrs}
-		err := handle.LinkAdd(link)
+		// relying on iproute2 before native wireguard support
+		err = exec.Command("ip", "link", "add", ifname, "type", "wireguard").Run()
 		if err != nil {
 			return fmt.Errorf("failed to add link: %w", err)
+		}
+		var link netlink.Link
+		link, err = netlink.LinkByName(ifname)
+		if err != nil {
+			return fmt.Errorf("failed to retrive link by name: %w", err)
 		}
 		err = handle.LinkSetUp(link)
 		if err != nil {

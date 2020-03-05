@@ -1,10 +1,13 @@
 <component name="ProjectDictionaryState">
   <dictionary name="nickcao">
     <words>
+      <w>babeld</w>
       <w>dirpath</w>
+      <w>fakeip</w>
       <w>fullpath</w>
       <w>ifname</w>
       <w>ifprefix</w>
+      <w>iproute</w>
       <w>linklocal</w>
       <w>peerconfig</w>
       <w>pfile</w>

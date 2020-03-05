@@ -8,5 +8,3 @@ require (
 	github.com/vishvananda/netlink v1.1.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200205215550-e35592f146e4
 )
-
-replace github.com/vishvananda/netlink => ./netlink
