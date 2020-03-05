@@ -1,12 +1,22 @@
-image: golang:latest
-
 stages:
   - build
 
-compile:
+build:binary:
+  image: golang:latest
   stage: build
   script:
     - go build -o bin/rait cmd/rait/rait.go
   artifacts:
     paths:
-      - bin/
+      - bin/rait
+
+build:container:
+  image: docker:latest
+  stage: build
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - docker build --pull -t "$CI_REGISTRY_IMAGE" .
+    - docker push "$CI_REGISTRY_IMAGE"
