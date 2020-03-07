@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net"
 	"path"
+	"strings"
 )
 
 type Peer struct {
@@ -64,12 +65,14 @@ func LoadPeersFromTomls(dirpath string) ([]*Peer, error) {
 		return nil, fmt.Errorf("failed to list peer configs: %w", err)
 	}
 	for _, file := range files {
-		filepath := path.Join(dirpath, file.Name())
-		peer, err := NewPeerFromToml(filepath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load peer from toml file: %w", err)
+		if strings.HasSuffix(file.Name(), ".conf") && !file.IsDir() {
+			filepath := path.Join(dirpath, file.Name())
+			peer, err := NewPeerFromToml(filepath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load peer from toml file: %w", err)
+			}
+			peers = append(peers, peer)
 		}
-		peers = append(peers, peer)
 	}
 	return peers, nil
 }
