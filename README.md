@@ -5,7 +5,7 @@ Disclaimer: RAIT's purpose is to provide linklocal full-mesh connectivity betwee
 ###### Configuration File Format
 
 ```toml
-# rait.toml
+# rait.conf
 PrivateKey = <your wireguard private key>
 SendPort = <as the name suggests>
 # the fields bellow are optional
@@ -13,7 +13,7 @@ TagPolicy = <peering policy>
 [Tags]
 <key> = <value>
 
-# peer.toml
+# peer.conf (it has to have suffix .conf)
 PublicKey = <public key of the peer>
 SendPort = <as the name suggests>
 # the fields bellow are optional
