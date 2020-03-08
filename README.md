@@ -6,20 +6,13 @@ Disclaimer: RAIT's purpose is to provide linklocal full-mesh connectivity betwee
 
 ```toml
 # rait.conf
-PrivateKey = <your wireguard private key>
-SendPort = <as the name suggests>
-# the fields bellow are optional
-TagPolicy = <peering policy>
-[Tags]
-<key> = <value>
+PrivateKey = "yJfVm2jfFtxW1pIAR52fJfrmbxCNlkdEUsUN7vdgnn4="
+SendPort = 50123
 
-# peer.conf (it has to have suffix .conf)
-PublicKey = <public key of the peer>
-SendPort = <as the name suggests>
-# the fields bellow are optional
-Endpoint = <the ip address or fqdn of the peer>
-[Tags]
-<key> = <value>
+# peer.conf (it has to have the suffix ".conf")
+PublicKey = "m4UZot4m0KXtfZRLI5MoyZrVPNlMG2PvPFVrM9I+3zc="
+SendPort = 50456
+Endpoint = "1.1.1.1" # Optional
 ```
 
 Additionally, the "rait load" subcommand accepts a json stream from stdin to load the equivalent config files in a programmatic way. The scheme of the json stream is documented below.
@@ -39,4 +32,3 @@ Additionally, the "rait load" subcommand accepts a json stream from stdin to loa
     ]
 }
 ```
-

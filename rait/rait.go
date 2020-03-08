@@ -15,32 +15,26 @@ type RAIT struct {
 	PrivateKey *wgtypes.Key
 	PublicKey  *wgtypes.Key
 	SendPort   int
-	TagPolicy  string
-	Tags       map[string]string
 }
 
 type RAITConfig struct {
 	PrivateKey string
 	SendPort   int
-	TagPolicy  string            `json:",omitempty"`
-	Tags       map[string]string `json:",omitempty"`
 }
 
 func NewRAIT(config *RAITConfig) (*RAIT, error) {
 	var privatekey wgtypes.Key
+	var publickey wgtypes.Key
 	var err error
 	privatekey, err = wgtypes.ParseKey(config.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse private privatekey: %w", err)
 	}
-	var publickey wgtypes.Key
 	publickey = privatekey.PublicKey()
 	return &RAIT{
 		PrivateKey: &privatekey,
 		PublicKey:  &publickey,
 		SendPort:   config.SendPort,
-		Tags:       config.Tags,
-		TagPolicy:  config.TagPolicy,
 	}, nil
 }
 
@@ -54,14 +48,10 @@ func NewRAITFromToml(filepath string) (*RAIT, error) {
 	return NewRAIT(&config)
 }
 
-func (r *RAIT) EvaluatePolicy(peer *Peer) bool {
-	return true
-}
-
 func (r *RAIT) WireguardConfigs(peers []*Peer) []*wgtypes.Config {
 	var configs []*wgtypes.Config
 	for _, peer := range peers {
-		if *r.PublicKey == peer.PublicKey || !r.EvaluatePolicy(peer) {
+		if *r.PublicKey == peer.PublicKey {
 			continue
 		}
 		var endpoint *net.UDPAddr
@@ -87,10 +77,11 @@ func (r *RAIT) WireguardConfigs(peers []*Peer) []*wgtypes.Config {
 			ReplaceAllowedIPs: true,
 			AllowedIPs:        []net.IPNet{*IP4NetAll, *IP6NetAll},
 		}
+		mark := 54 //Just a randomly generated number
 		config := &wgtypes.Config{
 			PrivateKey:   r.PrivateKey,
 			ListenPort:   &peer.SendPort,
-			FirewallMark: nil,
+			FirewallMark: &mark,
 			ReplacePeers: true,
 			Peers:        []wgtypes.PeerConfig{peerconfig},
 		}

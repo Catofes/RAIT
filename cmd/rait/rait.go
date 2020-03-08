@@ -44,7 +44,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					p, err = rait.LoadPeersFromTomls(c.String("peers"))
+					p, err = rait.LoadPeersFromTomls(c.String("peers"), ".conf")
 					if err != nil {
 						return err
 					}
