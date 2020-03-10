@@ -5,8 +5,8 @@ After=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=true
-ExecStart=rait up -p rait -c /root/local.conf -d /root/peers
-ExecStop=rait down -p rait
+ExecStart=rait up -c /etc/rait/rait.conf -d /etc/rait/peers
+ExecStop=rait down -c /etc/rait/rait.conf
 
 [Install]
 WantedBy=multi-user.target

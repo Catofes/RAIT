@@ -6,20 +6,11 @@ import (
 	"github.com/vishvananda/netlink"
 	"math/rand"
 	"net"
-	"os"
-	"os/exec"
-	"strings"
 	"time"
 )
 
 var _, IP4NetAll, _ = net.ParseCIDR("0.0.0.0/0")
 var _, IP6NetAll, _ = net.ParseCIDR("::/0")
-
-func ConnectStdIO(cmd * exec.Cmd) *exec.Cmd{
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	return cmd
-}
 
 func RandomLinklocal() *netlink.Addr {
 	rand.Seed(time.Now().UnixNano())
@@ -37,30 +28,6 @@ func RandomLinklocal() *netlink.Addr {
 	}
 	a, _ := netlink.ParseAddr("fe80:" + parts + "/64")
 	return a
-}
-
-func DestroyLinks(ifprefix string) error {
-	var handle *netlink.Handle
-	var err error
-	handle, err = netlink.NewHandle()
-	if err != nil {
-		return fmt.Errorf("failed to get netlink handle: %w", err)
-	}
-	defer handle.Delete()
-	var links []netlink.Link
-	links, err = handle.LinkList()
-	if err != nil {
-		return fmt.Errorf("failed to list links: %w", err)
-	}
-	for _, link := range links {
-		if strings.HasPrefix(link.Attrs().Name, ifprefix) && link.Type() == "wireguard" {
-			err = handle.LinkDel(link)
-			if err != nil {
-				return fmt.Errorf("failed to delete link: %w", err)
-			}
-		}
-	}
-	return nil
 }
 
 type JSONConfig struct {
