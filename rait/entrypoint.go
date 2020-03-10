@@ -67,9 +67,11 @@ func RAITDown(config string) error {
 	if err != nil {
 		return err
 	}
-	err = r.DestroyDummyInterface()
-	if err != nil {
-		return err
+	if r.DummyName != "" {
+		err = r.DestroyDummyInterface()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
