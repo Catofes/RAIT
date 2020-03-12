@@ -15,6 +15,7 @@
       <w>publickey</w>
       <w>rait</w>
       <w>tomls</w>
+      <w>wgctrl</w>
       <w>wireguard</w>
     </words>
   </dictionary>

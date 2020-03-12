@@ -9,11 +9,16 @@ func RAITUp(config string, peers string) error {
 	var r *RAIT
 	var p []*Peer
 	var err error
-	r, err = NewRAITFromToml(config)
+	r, err = NewRAITFromFile(config)
 	if err != nil {
 		return err
 	}
-	p, err = LoadPeersFromTomls(peers, ".conf")
+	err = r.Init()
+	if err != nil{
+		return err
+	}
+	defer r.Destroy()
+	p, err = NewPeersFromDirectory(peers, ".conf")
 	if err != nil {
 		return err
 	}
@@ -59,10 +64,15 @@ func RAITLoad(stream io.Reader) error {
 func RAITDown(config string) error {
 	var r *RAIT
 	var err error
-	r, err = NewRAITFromToml(config)
+	r, err = NewRAITFromFile(config)
 	if err != nil {
 		return err
 	}
+	err = r.Init()
+	if err != nil{
+		return err
+	}
+	defer r.Destroy()
 	err = r.DestroyWireguardLinks()
 	if err != nil {
 		return err

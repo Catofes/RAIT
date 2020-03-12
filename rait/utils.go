@@ -31,8 +31,8 @@ func RandomLinklocal() *netlink.Addr {
 }
 
 type JSONConfig struct {
-	RAIT  RAITConfig   `json:"rait"`
-	Peers []PeerConfig `json:"peers"`
+	RAIT  RAITConfig
+	Peers []PeerConfig
 }
 
 func LoadFromJSON(data []byte) (*RAIT, []*Peer, error) {

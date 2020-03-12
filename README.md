@@ -12,7 +12,7 @@ IFPrefix = "rait"
 # Fields below are optional
 DummyName = "rait-local"
 DummyIP = ["1.1.1.1/24","8.8.8.8/24"]
-
+NetNS = "rait"
 # peer.conf (it has to have the suffix ".conf")
 PublicKey = "m4UZot4m0KXtfZRLI5MoyZrVPNlMG2PvPFVrM9I+3zc="
 SendPort = 50456
