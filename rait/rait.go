@@ -3,7 +3,6 @@ package rait
 import (
 	"fmt"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -11,15 +10,9 @@ type RAIT struct {
 	PrivateKey wgtypes.Key
 	PublicKey  wgtypes.Key
 	SendPort   int
-	IFPrefix   string
-	DummyName  string
-	DummyIP    []*netlink.Addr
-	NetNS      string
-	// Fields bellow are initialized at runtime
-	OriginalNSHandle       netns.NsHandle
-	SpecifiedNSHandle      netns.NsHandle
-	OriginalNetlinkHandle  *netlink.Handle
-	SpecifiedNetlinkHandle *netlink.Handle
+	Interface  string
+	Addresses  []*netlink.Addr
+	Namespace  string
 }
 
 func NewRAIT(config *RAITConfig) (*RAIT, error) {
@@ -30,20 +23,17 @@ func NewRAIT(config *RAITConfig) (*RAIT, error) {
 		return nil, fmt.Errorf("failed to parse private privatekey: %w", err)
 	}
 	r.PublicKey = r.PrivateKey.PublicKey()
-
-	for _, RawDummyIP := range config.DummyIP {
+	for _, RawAddress := range config.Addresses {
 		var ip *netlink.Addr
 		var err error
-		ip, err = netlink.ParseAddr(RawDummyIP)
+		ip, err = netlink.ParseAddr(RawAddress)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse ip: %w", err)
+			return nil, fmt.Errorf("failed to parse address: %w", err)
 		}
-		r.DummyIP = append(r.DummyIP, ip)
+		r.Addresses = append(r.Addresses, ip)
 	}
-
 	r.SendPort = config.SendPort
-	r.IFPrefix = config.IFPrefix
-	r.DummyName = config.DummyName
-	r.NetNS = config.NetNS
+	r.Interface = config.Interface
+	r.Namespace = config.Namespace
 	return &r, nil
 }

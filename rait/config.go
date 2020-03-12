@@ -11,10 +11,9 @@ import (
 type RAITConfig struct {
 	PrivateKey string
 	SendPort   int
-	IFPrefix   string
-	DummyName  string
-	DummyIP    []string
-	NetNS      string
+	Interface  string
+	Addresses  []string
+	Namespace  string
 }
 
 func NewRAITFromFile(filepath string) (*RAIT, error) {

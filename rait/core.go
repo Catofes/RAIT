@@ -9,12 +9,13 @@ import (
 	"net"
 	"runtime"
 	"strconv"
-	"strings"
 )
 
 var RAITFwMark = 54
 
-func (r *RAIT) WireguardConfigs(peers []*Peer) []*wgtypes.Config {
+const IFPrefix = "rait"
+
+func (r *RAIT) WireguardConfig(peers []*Peer) []*wgtypes.Config {
 	var configs []*wgtypes.Config
 	for _, peer := range peers {
 		if r.PublicKey == peer.PublicKey {
@@ -43,65 +44,27 @@ func (r *RAIT) WireguardConfigs(peers []*Peer) []*wgtypes.Config {
 	return configs
 }
 
-func (r *RAIT) Init() error {
-	var err error
-	r.OriginalNSHandle, err = netns.Get()
+func (r *RAIT) Setup(peers []*Peer) error {
+	// Just trying
+	_ = CreateNetNSFromName(r.Namespace)
+	OutsideHandle, InsideHandle, OutsideNS, InsideNS, err := GetHandles(r.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to get netns handle: %w", err)
+		return fmt.Errorf("failed to get netlink handles: %w", err)
 	}
-	r.OriginalNetlinkHandle, err = netlink.NewHandleAt(r.OriginalNSHandle)
-	if err != nil {
-		return fmt.Errorf("failed to get netlink handle: %w", err)
-	}
+	defer InsideNS.Close()
+	defer OutsideNS.Close()
+	defer InsideHandle.Delete()
+	defer OutsideHandle.Delete()
 
-	if r.NetNS != "" {
-		r.SpecifiedNSHandle, err = netns.GetFromName(r.NetNS)
-		if err != nil {
-			return fmt.Errorf("failed to get netns handle: %w", err)
-		}
-		r.SpecifiedNetlinkHandle, err = netlink.NewHandleAt(r.SpecifiedNSHandle)
-		if err != nil {
-			return fmt.Errorf("failed to get netlink handle: %w", err)
-		}
-	} else {
-		r.SpecifiedNSHandle = r.OriginalNSHandle
-		r.SpecifiedNetlinkHandle = r.OriginalNetlinkHandle
-	}
-	return nil
-}
-
-func (r *RAIT) Destroy() {
-	r.OriginalNetlinkHandle.Delete()
-	r.SpecifiedNetlinkHandle.Delete()
-	_ = r.OriginalNSHandle.Close()
-	_ = r.SpecifiedNSHandle.Close()
-}
-
-func (r *RAIT) NSEnter() error {
+	// Setup wireguard
+	// Before wgctrl supports net InsideNS natively, we have to do this
 	runtime.LockOSThread()
-	err := netns.Set(r.SpecifiedNSHandle)
-	if err != nil {
-		runtime.UnlockOSThread()
-	}
-	return err
-}
-
-func (r *RAIT) NSLeave() error {
-	err := netns.Set(r.OriginalNSHandle)
-	if err == nil {
-		runtime.UnlockOSThread()
-	}
-	return err
-}
-
-func (r *RAIT) SetupWireguardLinks(peers []*Peer) error {
-	var err error
-	// Before wgctrl supports net ns natively, we have to do this
-	err = r.NSEnter()
+	defer runtime.UnlockOSThread()
+	err = netns.Set(InsideNS)
 	if err != nil {
 		return fmt.Errorf("failed to enter netns: %w", err)
 	}
-	defer r.NSLeave()
+	defer netns.Set(OutsideNS)
 
 	var client *wgctrl.Client
 	client, err = wgctrl.New()
@@ -110,30 +73,28 @@ func (r *RAIT) SetupWireguardLinks(peers []*Peer) error {
 	}
 	defer client.Close()
 
-	configs := r.WireguardConfigs(peers)
+	configs := r.WireguardConfig(peers)
 
 	for index, config := range configs {
-		ifname := r.IFPrefix + strconv.Itoa(index)
+		ifname := IFPrefix + strconv.Itoa(index)
 		link := &netlink.Wireguard{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: ifname,
 			},
 		}
-		err = r.OriginalNetlinkHandle.LinkAdd(link)
+		err = OutsideHandle.LinkAdd(link)
 		if err != nil {
 			return fmt.Errorf("failed to create link: %w", err)
 		}
-		if r.NetNS != "" {
-			err = r.OriginalNetlinkHandle.LinkSetNsFd(link, int(r.SpecifiedNSHandle))
-			if err != nil {
-				return fmt.Errorf("failed to move link to net ns: %w", err)
-			}
+		err = OutsideHandle.LinkSetNsFd(link, int(InsideNS))
+		if err != nil {
+			return fmt.Errorf("failed to move link to netns: %w", err)
 		}
-		err = r.SpecifiedNetlinkHandle.LinkSetUp(link)
+		err = InsideHandle.LinkSetUp(link)
 		if err != nil {
 			return fmt.Errorf("failed to bring up link: %w", err)
 		}
-		err = r.SpecifiedNetlinkHandle.AddrAdd(link, RandomLinklocal())
+		err = InsideHandle.AddrAdd(link, RandomLinklocal())
 		if err != nil {
 			return fmt.Errorf("failed to add linklocal address: %w", err)
 		}
@@ -142,61 +103,54 @@ func (r *RAIT) SetupWireguardLinks(peers []*Peer) error {
 			return fmt.Errorf("failed to configure link: %w", err)
 		}
 	}
-	return nil
-}
 
-func (r *RAIT) DestroyWireguardLinks() error {
-	var links []netlink.Link
-	var err error
-	links, err = r.SpecifiedNetlinkHandle.LinkList()
-	if err != nil {
-		return fmt.Errorf("failed to list links: %w", err)
-	}
-	for _, link := range links {
-		if strings.HasPrefix(link.Attrs().Name, r.IFPrefix) && link.Type() == "wireguard" {
-			err = r.SpecifiedNetlinkHandle.LinkDel(link)
-			if err != nil {
-				return fmt.Errorf("failed to delete link: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-func (r *RAIT) SetupDummyInterface() error {
-	var link = &netlink.Dummy{
+	// Setup veth pair
+	link := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: r.DummyName,
+			Name: IFPrefix + "local",
 		},
+		PeerName: r.Interface,
 	}
-	var err error
-	err = r.SpecifiedNetlinkHandle.LinkAdd(link)
+	err = InsideHandle.LinkAdd(link)
 	if err != nil {
-		return fmt.Errorf("failed to add dummy interface: %w", err)
+		return fmt.Errorf("failed to add veth pair: %w", err)
 	}
-	err = r.SpecifiedNetlinkHandle.LinkSetUp(link)
+	err = InsideHandle.LinkSetUp(link)
 	if err != nil {
-		return fmt.Errorf("failed to set dummy interface up: %w", err)
+		return fmt.Errorf("failed to bring up veth inside: %w", err)
 	}
-	for _, addr := range r.DummyIP {
-		err = r.SpecifiedNetlinkHandle.AddrAdd(link, addr)
+	var peer netlink.Link
+	peer, err = InsideHandle.LinkByName(r.Interface)
+	if err != nil {
+		return fmt.Errorf("failed to get peer: %w", err)
+	}
+	err = InsideHandle.LinkSetNsFd(peer, int(OutsideNS))
+	if err != nil {
+		return fmt.Errorf("failed to move peer to ns: %w", err)
+	}
+
+	// Fetch it again
+	peer, err = OutsideHandle.LinkByName(r.Interface)
+	if err != nil {
+		return fmt.Errorf("failed to get peer: %w", err)
+	}
+	err = OutsideHandle.LinkSetUp(peer)
+	if err != nil {
+		return fmt.Errorf("failed to bring up peer: %w", err)
+	}
+	for _, addr := range r.Addresses {
+		err = OutsideHandle.AddrAdd(peer, addr)
 		if err != nil {
-			return fmt.Errorf("failed to add addr to dummy interface: %w", err)
+			return fmt.Errorf("failed to add addr to peer: %w", err)
 		}
+	}
+	err = r.WriteBabeldConfig(len(peers))
+	if err != nil {
+		return fmt.Errorf("failed to write babeld conf: %w", err)
 	}
 	return nil
 }
 
-func (r *RAIT) DestroyDummyInterface() error {
-	var link netlink.Link
-	var err error
-	link, err = r.SpecifiedNetlinkHandle.LinkByName(r.DummyName)
-	if err != nil {
-		return fmt.Errorf("failed to get dummy interface: %w", err)
-	}
-	err = r.SpecifiedNetlinkHandle.LinkDel(link)
-	if err != nil {
-		return fmt.Errorf("failed to remove dummy interface: %w", err)
-	}
-	return nil
+func (r *RAIT) Destroy() error {
+	return DestroyNetNSFromName(r.Namespace)
 }

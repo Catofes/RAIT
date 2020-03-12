@@ -1,7 +1,6 @@
 package rait
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/vishvananda/netlink"
 	"math/rand"
@@ -30,30 +29,3 @@ func RandomLinklocal() *netlink.Addr {
 	return a
 }
 
-type JSONConfig struct {
-	RAIT  RAITConfig
-	Peers []PeerConfig
-}
-
-func LoadFromJSON(data []byte) (*RAIT, []*Peer, error) {
-	var config JSONConfig
-	var err error
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode json: %w", err)
-	}
-	var peers []*Peer
-	for _, peerconfig := range config.Peers {
-		peer, err := NewPeer(&peerconfig)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to load peer: %w", err)
-		}
-		peers = append(peers, peer)
-	}
-	var rait *RAIT
-	rait, err = NewRAIT(&config.RAIT)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load rait: %w", err)
-	}
-	return rait, peers, nil
-}

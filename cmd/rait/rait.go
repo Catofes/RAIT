@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/NickCao/RAIT/rait"
+	"log"
 	"os"
 )
 
@@ -34,13 +34,6 @@ func main() {
 				},
 			},
 			{
-				Name:  "load",
-				Usage: "same as up, but from json and stdin (for programmatic invocations)",
-				Action: func(c *cli.Context) error {
-					return rait.RAITLoad(os.Stdin)
-				},
-			},
-			{
 				Name:  "down",
 				Usage: "the big red button",
 				Flags: []cli.Flag{
@@ -59,6 +52,6 @@ func main() {
 	}
 	err := app.Run(os.Args)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 }
