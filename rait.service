@@ -3,9 +3,7 @@ Description=rait
 After=network.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=true
-ExecStart=/usr/local/bin/rait up -c /etc/rait/rait.conf -d /etc/rait/peers
+ExecStart=/usr/local/bin/rait up -c /etc/rait/rait.conf -d /etc/rait/peers -b
 ExecStop=/usr/local/bin/rait down -c /etc/rait/rait.conf
 
 [Install]
