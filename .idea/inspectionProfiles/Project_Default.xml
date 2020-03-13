@@ -25,6 +25,7 @@
         <method importPath="gitlab.com/NickCao/RAIT/rait" receiver="*RAIT" name="NSLeave" />
         <method importPath="github.com/vishvananda/netns" receiver="*NsHandle" name="Close" />
         <method importPath="os" receiver="*File" name="Close" />
+        <method importPath="gitlab.com/NickCao/RAIT/rait" receiver="*NamespaceHelper" name="Leave" />
       </methods>
     </inspection_tool>
   </profile>

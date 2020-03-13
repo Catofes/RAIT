@@ -28,9 +28,14 @@ func main() {
 						Usage:    "Load peers from `DIR`",
 						Required: true,
 					},
+					&cli.BoolFlag{
+						Name:     "babeld",
+						Aliases:  []string{"b"},
+						Usage:    "Run babeld and block",
+					},
 				},
 				Action: func(c *cli.Context) error {
-					return rait.RAITUp(c.String("config"), c.String("peers"))
+					return rait.EntryUp(c.String("config"), c.String("peers"), c.Bool("babeld"))
 				},
 			},
 			{
@@ -45,7 +50,7 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					return rait.RAITDown(c.String("config"))
+					return rait.EntryDown(c.String("config"))
 				},
 			},
 		},
@@ -53,5 +58,6 @@ func main() {
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Println(err)
+		os.Exit(1)
 	}
 }

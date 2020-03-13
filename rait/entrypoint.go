@@ -1,23 +1,26 @@
 package rait
 
-func RAITUp(config string, peers string) error {
-	r, err := NewRAITFromFile(config)
+func EntryUp(raitFile string, peerDir string, babeld bool) error {
+	r, err := RAITFromFile(raitFile)
 	if err != nil {
 		return err
 	}
-	p, err := NewPeersFromDirectory(peers, ".conf")
+	ps, err := PeersFromDirectory(peerDir)
 	if err != nil {
 		return err
 	}
-	err = r.Setup(p)
+	err = r.Setup(ps)
 	if err != nil {
 		return err
+	}
+	if babeld {
+		return ExecuteBabeld(r.IFPrefix, len(ps), r.Namespace)
 	}
 	return nil
 }
 
-func RAITDown(config string) error {
-	r, err := NewRAITFromFile(config)
+func EntryDown(raitFile string) error {
+	r, err := RAITFromFile(raitFile)
 	if err != nil {
 		return err
 	}

@@ -17,9 +17,12 @@
       <w>publickey</w>
       <w>rait</w>
       <w>rxcost</w>
+      <w>tmpfile</w>
       <w>tomls</w>
+      <w>unmarshaler</w>
       <w>veth</w>
       <w>wgctrl</w>
+      <w>wgtypes</w>
       <w>wireguard</w>
     </words>
   </dictionary>

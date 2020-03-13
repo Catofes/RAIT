@@ -3,68 +3,19 @@ package rait
 import (
 	"fmt"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 	"golang.zx2c4.com/wireguard/wgctrl"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"net"
-	"runtime"
 	"strconv"
+	"strings"
 )
 
-var RAITFwMark = 54
-
-const IFPrefix = "rait"
-
-func (r *RAIT) WireguardConfig(peers []*Peer) []*wgtypes.Config {
-	var configs []*wgtypes.Config
-	for _, peer := range peers {
-		if r.PublicKey == peer.PublicKey {
-			continue // ignore self quick path
-		}
-		configs = append(configs, &wgtypes.Config{
-			PrivateKey:   &r.PrivateKey,
-			ListenPort:   &peer.SendPort,
-			FirewallMark: &RAITFwMark,
-			ReplacePeers: true,
-			Peers: []wgtypes.PeerConfig{
-				{
-					PublicKey:    peer.PublicKey,
-					Remove:       false,
-					UpdateOnly:   false,
-					PresharedKey: nil,
-					Endpoint: &net.UDPAddr{
-						IP:   peer.EndpointIP,
-						Port: r.SendPort,
-					},
-					ReplaceAllowedIPs: true,
-					AllowedIPs:        []net.IPNet{*IP4NetAll, *IP6NetAll},
-				}},
-		})
-	}
-	return configs
-}
-
 func (r *RAIT) Setup(peers []*Peer) error {
-	// Just trying
-	_ = CreateNetNSFromName(r.Namespace)
-	OutsideHandle, InsideHandle, OutsideNS, InsideNS, err := GetHandles(r.Namespace)
+	var helper *NamespaceHelper
+	var err error
+	helper, err = NamespaceHelperFromName(r.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to get netlink handles: %w", err)
+		return err
 	}
-	defer InsideNS.Close()
-	defer OutsideNS.Close()
-	defer InsideHandle.Delete()
-	defer OutsideHandle.Delete()
-
-	// Setup wireguard
-	// Before wgctrl supports net InsideNS natively, we have to do this
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	err = netns.Set(InsideNS)
-	if err != nil {
-		return fmt.Errorf("failed to enter netns: %w", err)
-	}
-	defer netns.Set(OutsideNS)
+	defer helper.Destroy()
 
 	var client *wgctrl.Client
 	client, err = wgctrl.New()
@@ -73,84 +24,113 @@ func (r *RAIT) Setup(peers []*Peer) error {
 	}
 	defer client.Close()
 
-	configs := r.WireguardConfig(peers)
-
-	for index, config := range configs {
-		ifname := IFPrefix + strconv.Itoa(index)
+	for index, p := range peers {
+		config := SynthesisWireguardConfig(r, p)
+		if config == nil {
+			continue
+		}
+		ifname := r.IFPrefix + strconv.Itoa(index)
 		link := &netlink.Wireguard{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: ifname,
+				MTU:  int(r.MTU),
 			},
 		}
-		err = OutsideHandle.LinkAdd(link)
+		err = helper.SrcHandle.LinkAdd(link)
 		if err != nil {
-			return fmt.Errorf("failed to create link: %w", err)
-		}
-		err = OutsideHandle.LinkSetNsFd(link, int(InsideNS))
-		if err != nil {
-			return fmt.Errorf("failed to move link to netns: %w", err)
-		}
-		err = InsideHandle.LinkSetUp(link)
-		if err != nil {
-			return fmt.Errorf("failed to bring up link: %w", err)
-		}
-		err = InsideHandle.AddrAdd(link, RandomLinklocal())
-		if err != nil {
-			return fmt.Errorf("failed to add linklocal address: %w", err)
+			return fmt.Errorf("failed to create wireguard interface: %w", err)
 		}
 		err = client.ConfigureDevice(ifname, *config)
 		if err != nil {
-			return fmt.Errorf("failed to configure link: %w", err)
+			return fmt.Errorf("failed to configure wireguard interface: %w", err)
+		}
+		err = helper.SrcHandle.LinkSetNsFd(link, int(helper.DstNamespace))
+		if err != nil {
+			return fmt.Errorf("failed to move interface to netns: %w", err)
+		}
+		err = helper.DstHandle.LinkSetUp(link)
+		if err != nil {
+			return fmt.Errorf("failed to bring up wireguard interface: %w", err)
+		}
+		err = helper.DstHandle.AddrAdd(link, RandomLinklocal())
+		if err != nil {
+			return fmt.Errorf("failed to add linklocal address: %w", err)
 		}
 	}
 
-	// Setup veth pair
-	link := &netlink.Veth{
+	peerName := r.IFPrefix + "local"
+	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: IFPrefix + "local",
+			Name: r.Interface,
+			MTU: 65535,
 		},
-		PeerName: r.Interface,
+		PeerName: peerName,
 	}
-	err = InsideHandle.LinkAdd(link)
+	err = helper.SrcHandle.LinkAdd(veth)
 	if err != nil {
 		return fmt.Errorf("failed to add veth pair: %w", err)
 	}
-	err = InsideHandle.LinkSetUp(link)
+	err = helper.SrcHandle.LinkSetUp(veth)
 	if err != nil {
-		return fmt.Errorf("failed to bring up veth inside: %w", err)
-	}
-	var peer netlink.Link
-	peer, err = InsideHandle.LinkByName(r.Interface)
-	if err != nil {
-		return fmt.Errorf("failed to get peer: %w", err)
-	}
-	err = InsideHandle.LinkSetNsFd(peer, int(OutsideNS))
-	if err != nil {
-		return fmt.Errorf("failed to move peer to ns: %w", err)
-	}
-
-	// Fetch it again
-	peer, err = OutsideHandle.LinkByName(r.Interface)
-	if err != nil {
-		return fmt.Errorf("failed to get peer: %w", err)
-	}
-	err = OutsideHandle.LinkSetUp(peer)
-	if err != nil {
-		return fmt.Errorf("failed to bring up peer: %w", err)
+		return fmt.Errorf("failed to bring up veth: %w", err)
 	}
 	for _, addr := range r.Addresses {
-		err = OutsideHandle.AddrAdd(peer, addr)
+		err = helper.SrcHandle.AddrAdd(veth, addr.Addr)
 		if err != nil {
 			return fmt.Errorf("failed to add addr to peer: %w", err)
 		}
 	}
-	err = r.WriteBabeldConfig(len(peers))
+
+	var peer netlink.Link
+	peer, err = helper.SrcHandle.LinkByName(peerName)
 	if err != nil {
-		return fmt.Errorf("failed to write babeld conf: %w", err)
+		return fmt.Errorf("failed to get peer: %w", err)
+	}
+	err = helper.SrcHandle.LinkSetNsFd(peer, int(helper.DstNamespace))
+	if err != nil {
+		return fmt.Errorf("failed to move peer to ns: %w", err)
+	}
+	err = helper.DstHandle.LinkSetUp(peer)
+	if err != nil {
+		return fmt.Errorf("failed to bring up peer: %w", err)
 	}
 	return nil
 }
 
 func (r *RAIT) Destroy() error {
-	return DestroyNetNSFromName(r.Namespace)
+	var helper *NamespaceHelper
+	var err error
+	helper, err = NamespaceHelperFromName(r.Namespace)
+	if err != nil {
+		return err
+	}
+	defer helper.Destroy()
+
+	var veth netlink.Link
+	veth, err = helper.SrcHandle.LinkByName(r.Interface)
+	if err == nil {
+		_ = helper.SrcHandle.LinkDel(veth)
+	}
+
+	linkList, err := helper.DstHandle.LinkList()
+	if err != nil {
+		return err
+	}
+	for _, link := range linkList {
+		if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, r.IFPrefix) {
+			_ = helper.DstHandle.LinkDel(link)
+		}
+	}
+
+	linkList, err = helper.SrcHandle.LinkList()
+	if err != nil {
+		return err
+	}
+	for _, link := range linkList {
+		if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, r.IFPrefix) {
+			_ = helper.SrcHandle.LinkDel(link)
+		}
+	}
+
+	return nil
 }
