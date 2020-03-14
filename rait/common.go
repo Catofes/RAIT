@@ -6,7 +6,9 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"math/rand"
 	"net"
+	"os"
 	"os/exec"
+	"path"
 	"time"
 )
 
@@ -65,4 +67,12 @@ func SynthesisWireguardConfig(r *RAIT, p *Peer) *wgtypes.Config {
 
 func CreateNamedNamespace(name string) error {
 	return exec.Command("ip", "netns", "add", name).Run()
+}
+
+func CreateParentDirIfNotExist(filepath string) error {
+	dirpath := path.Dir(filepath)
+	if _, err := os.Stat(dirpath); os.IsNotExist(err) {
+		return os.MkdirAll(dirpath, 0755)
+	}
+	return nil
 }

@@ -1,6 +1,6 @@
 package rait
 
-func EntryUp(raitFile string, peerDir string, babeld bool) error {
+func EntryUp(raitFile string, peerDir string, babeld string) error {
 	r, err := RAITFromFile(raitFile)
 	if err != nil {
 		return err
@@ -13,8 +13,8 @@ func EntryUp(raitFile string, peerDir string, babeld bool) error {
 	if err != nil {
 		return err
 	}
-	if babeld {
-		return ExecuteBabeld(r.IFPrefix, len(ps), r.Namespace)
+	if babeld != "" {
+		return GenerateBabeldConfig(r.IFPrefix, len(ps), babeld)
 	}
 	return nil
 }

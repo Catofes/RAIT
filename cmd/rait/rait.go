@@ -11,44 +11,42 @@ func main() {
 	app := &cli.App{
 		Name:  "RAIT",
 		Usage: "Redundant Array of Inexpensive Tunnels",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "config",
+				Aliases:  []string{"c"},
+				Usage:    "Load config from `FILE`",
+				Required: false,
+				Value:    "/etc/rait/rait.conf",
+			},
+		},
 		Commands: []*cli.Command{
 			{
 				Name:  "up",
-				Usage: "time to take flight",
+				Usage: "bring up the wireguard mesh",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:     "config",
-						Aliases:  []string{"c"},
-						Usage:    "Load rait configuration from `FILE`",
-						Required: true,
+						Name:     "peers",
+						Aliases:  []string{"p"},
+						Usage:    "Load peers from `DIR`",
+						Required: false,
+						Value:    "/etc/rait/peers",
 					},
 					&cli.StringFlag{
-						Name:     "peers",
-						Aliases:  []string{"d"},
-						Usage:    "Load peers from `DIR`",
-						Required: true,
-					},
-					&cli.BoolFlag{
 						Name:     "babeld",
 						Aliases:  []string{"b"},
-						Usage:    "Run babeld and block",
+						Usage:    "Write babeld.conf to `PATH`",
+						Required: false,
+						Value:    "/run/rait/babeld.conf",
 					},
 				},
 				Action: func(c *cli.Context) error {
-					return rait.EntryUp(c.String("config"), c.String("peers"), c.Bool("babeld"))
+					return rait.EntryUp(c.String("config"), c.String("peers"), c.String("babeld"))
 				},
 			},
 			{
 				Name:  "down",
-				Usage: "the big red button",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:     "config",
-						Aliases:  []string{"c"},
-						Usage:    "Load rait configuration from `FILE`",
-						Required: true,
-					},
-				},
+				Usage: "destroy the wireguard mesh",
 				Action: func(c *cli.Context) error {
 					return rait.EntryDown(c.String("config"))
 				},

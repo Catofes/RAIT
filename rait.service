@@ -1,11 +1,12 @@
 [Unit]
-Description=rait
+Description=RAIT - Redundant Array of Inexpensive Tunnels
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/rait up -c /etc/rait/rait.conf -d /etc/rait/peers -b
-ExecStop=/usr/local/bin/rait down -c /etc/rait/rait.conf
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/rait up
+ExecStop=/usr/local/bin/rait down
 
 [Install]
 WantedBy=multi-user.target
-

@@ -1,9 +1,8 @@
 package rait
 
 import (
+	"bytes"
 	"io/ioutil"
-	"os"
-	"os/exec"
 	"strconv"
 	"text/template"
 )
@@ -19,21 +18,17 @@ interface {{$prefix}}local type wired
 redistribute local deny
 `
 
-func GenerateBabeldConfig(IFPrefix string, n int) (string, error) {
+func GenerateBabeldConfig(IFPrefix string, n int, filepath string) error {
 	var IFSuffix []string
 	for i := 0; i < n; i++ {
 		IFSuffix = append(IFSuffix, strconv.Itoa(i))
 	}
 	tmpl, err := template.New("babeld.conf").Parse(BabeldConfigTemplate)
 	if err != nil {
-		return "", err
+		return err
 	}
-	tmpfile, err := ioutil.TempFile("", "babeld.conf.*")
-	if err != nil {
-		return "", err
-	}
-	defer tmpfile.Close()
-	err = tmpl.Execute(tmpfile, struct {
+	var conf bytes.Buffer
+	err = tmpl.Execute(&conf, struct {
 		IFPrefix string
 		IFSuffix []string
 	}{
@@ -41,17 +36,15 @@ func GenerateBabeldConfig(IFPrefix string, n int) (string, error) {
 		IFSuffix: IFSuffix,
 	})
 	if err != nil {
-		return "", err
+		return err
 	}
-	return tmpfile.Name(), nil
-}
-
-func ExecuteBabeld(IFPrefix string, n int, ns string) error {
-	babeldConfig, err := GenerateBabeldConfig(IFPrefix, n)
+	err = CreateParentDirIfNotExist(filepath)
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("ip", "netns", "exec", ns, "babeld", "-c", babeldConfig, "-I", "''")
-	cmd.Stdout = os.Stdout
-	return cmd.Run()
+	err = ioutil.WriteFile(filepath, conf.Bytes(), 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }
