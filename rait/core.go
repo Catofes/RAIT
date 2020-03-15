@@ -94,6 +94,10 @@ func (r *RAIT) Setup(peers []*Peer) error {
 	if err != nil {
 		return fmt.Errorf("failed to bring up peer: %w", err)
 	}
+	err = helper.DstHandle.AddrAdd(peer, SynthesisAddress(r.Name))
+	if err != nil {
+		return fmt.Errorf("failed to add synthesised address: %w", err)
+	}
 	return nil
 }
 

@@ -41,7 +41,9 @@ type Peer struct {
 }
 
 func PeerFromFile(filePath string) (*Peer, error) {
-	var p Peer
+	var p = Peer{
+		Endpoint: net.ParseIP("127.0.0.1"),
+	}
 	var err error
 	_, err = toml.DecodeFile(filePath, &p)
 	if err != nil {
@@ -83,11 +85,24 @@ type RAIT struct {
 	IFPrefix  string
 	MTU       uint16
 	FwMark    uint16
+	Name      string
 }
 
 func RAITFromFile(filePath string) (*RAIT, error) {
-	var r RAIT
+	var hostname string
 	var err error
+	hostname, err = os.Hostname()
+	if err != nil {
+		hostname = RandomHex(4)
+	}
+	var r = RAIT{
+		Interface: "raitif",
+		Namespace: "raitns",
+		IFPrefix:  "rait",
+		MTU:       1400,
+		FwMark:    0x36,
+		Name:      hostname,
+	}
 	_, err = toml.DecodeFile(filePath, &r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode rait config at %v: %w", filePath, err)

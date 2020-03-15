@@ -1,6 +1,7 @@
 package rait
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -75,4 +76,25 @@ func CreateParentDirIfNotExist(filepath string) error {
 		return os.MkdirAll(dirpath, 0755)
 	}
 	return nil
+}
+
+func RandomHex(n int) string {
+	rand.Seed(time.Now().UnixNano())
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "unlikely, very unlikely"
+	}
+	return hex.EncodeToString(bytes)
+}
+
+func SynthesisAddress(name string) *netlink.Addr {
+	rawAddr, _ := hex.DecodeString("e000")
+	rawAddr = append(rawAddr, []byte(name)...)
+	rawAddr = append(rawAddr, make([]byte, 16)...)
+	addr, _ := netlink.ParseAddr(net.IP(rawAddr[:16]).String() + "/128")
+	return addr
+}
+
+func DecodeAddress(address string) string {
+	return string(net.ParseIP(address)[2:])
 }
