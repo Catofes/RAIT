@@ -62,7 +62,7 @@ func (r *RAIT) Setup(peers []*Peer) error {
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: r.Interface,
-			MTU: 65535,
+			MTU: int(r.MTU),
 		},
 		PeerName: peerName,
 	}
