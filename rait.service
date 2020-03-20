@@ -3,10 +3,11 @@ Description=RAIT - Redundant Array of Inexpensive Tunnels
 After=network.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/rait up
-ExecStop=/usr/local/bin/rait down
+Type=simple
+ExecStartPre=/usr/local/bin/rait up
+ExecStart=/usr/bin/ip netns exec gravity babeld -I '' -c /run/rait/babeld.conf
+ExecStopPost=/usr/local/bin/rait down
 
 [Install]
 WantedBy=multi-user.target
+

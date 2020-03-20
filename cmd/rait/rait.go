@@ -39,9 +39,15 @@ func main() {
 						Required: false,
 						Value:    "/run/rait/babeld.conf",
 					},
+					&cli.BoolFlag{
+						Name:     "no-veth",
+						Usage:    "Do not create the veth pair connecting two netns",
+						Required: false,
+						Value:    false,
+					},
 				},
 				Action: func(c *cli.Context) error {
-					return rait.EntryUp(c.String("config"), c.String("peers"), c.String("babeld"))
+					return rait.EntryUp(c.String("config"), c.String("peers"), c.String("babeld"), !c.Bool("no-veth"))
 				},
 			},
 			{

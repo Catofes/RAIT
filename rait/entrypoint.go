@@ -1,6 +1,6 @@
 package rait
 
-func EntryUp(raitFile string, peerDir string, babeld string) error {
+func EntryUp(raitFile string, peerDir string, babeld string, veth bool) error {
 	r, err := RAITFromFile(raitFile)
 	if err != nil {
 		return err
@@ -9,12 +9,21 @@ func EntryUp(raitFile string, peerDir string, babeld string) error {
 	if err != nil {
 		return err
 	}
-	err = r.Setup(ps)
+	err = r.SetupWireguard(ps)
 	if err != nil {
 		return err
 	}
+	if veth {
+		err = r.SetupVethPair()
+		if err != nil {
+			return err
+		}
+	}
 	if babeld != "" {
-		return GenerateBabeldConfig(r.IFPrefix, len(ps), babeld)
+		err = GenerateBabeldConfig(r.IFPrefix, len(ps), babeld)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -24,5 +33,7 @@ func EntryDown(raitFile string) error {
 	if err != nil {
 		return err
 	}
-	return r.Destroy()
+	_ = r.DestroyVethPair()
+	_ = r.DestroyWireguard()
+	return nil
 }
