@@ -78,15 +78,6 @@ func CreateParentDirIfNotExist(filepath string) error {
 	return nil
 }
 
-func RandomHex(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	bytes := make([]byte, n)
-	if _, err := rand.Read(bytes); err != nil {
-		return "unlikely, very unlikely"
-	}
-	return hex.EncodeToString(bytes)
-}
-
 func SynthesisAddress(name string) *netlink.Addr {
 	rawAddr, _ := hex.DecodeString("fd36")
 	rawAddr = append(rawAddr, []byte(name)...)

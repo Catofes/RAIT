@@ -24,6 +24,7 @@
       <w>tomls</w>
       <w>unmarshaler</w>
       <w>veth</w>
+      <w>vethname</w>
       <w>wgctrl</w>
       <w>wgtypes</w>
       <w>wireguard</w>

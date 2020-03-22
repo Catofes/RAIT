@@ -15,9 +15,9 @@ export-table 254
 default type tunnel link-quality true split-horizon false
 default rxcost 32 hello-interval 20 max-rtt-penalty 1024 rtt-max 1024
 
+{{if .VethName}}interface {{.VethName}} link-quality false rxcost 1 hello-interval 4{{end}}
 {{range $name := .IFName}}interface {{$name}}
 {{end}}
-redistribute ip fd36::/16 ge 128 allow
 redistribute local deny
 `
 
@@ -45,7 +45,14 @@ func (r *RAIT) GenerateBabeldConfig() error {
 		return fmt.Errorf("GenerateBabeldConfig: failed to parse config template: %w", err)
 	}
 	var conf bytes.Buffer
-	err = tmpl.Execute(&conf, struct{ IFName []string }{IFName: IFName})
+	var vethname string
+	if r.Veth != "off" {
+		vethname = r.Veth + "host"
+	}
+	err = tmpl.Execute(&conf, struct {
+		IFName   []string
+		VethName string
+	}{IFName: IFName, VethName: vethname})
 	if err != nil {
 		return fmt.Errorf("GenerateBabeldConfig: failed to execute config template: %w", err)
 	}

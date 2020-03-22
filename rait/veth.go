@@ -6,7 +6,7 @@ import (
 )
 
 func (r *RAIT) SetupVethPair() error {
-	if r.Veth == "off"{
+	if r.Veth == "off" {
 		return nil
 	}
 	helper, err := NamespaceHelperFromName(r.Namespace)
@@ -45,7 +45,7 @@ func (r *RAIT) SetupVethPair() error {
 }
 
 func (r *RAIT) DestroyVethPair() error {
-	if r.Veth == "off"{
+	if r.Veth == "off" {
 		return nil
 	}
 	helper, err := NamespaceHelperFromName(r.Namespace)

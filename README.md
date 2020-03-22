@@ -12,7 +12,7 @@ Namespace = "gravity" # the netns to move the wireguard interfaces into
 IFPrefix = "rait" # the common prefix of the wireguard interfaces
 MTU = 1400 # the MTU of the wireguard interfaces
 FwMark = 54 # that is 0x36
-Name = "os.Hostname()" # the node name will be encoded as part of a ULA
+ULAName = "off" # the node name will be encoded as part of a ULA, "off" to disable
 ```
 ```toml
 # peer.conf (it has to have the suffix ".conf")

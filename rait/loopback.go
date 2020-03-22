@@ -18,9 +18,11 @@ func (r *RAIT) SetupLoopback() error {
 	if err != nil {
 		return fmt.Errorf("SetupLoopback: failed to bring up loopback interface in specfied netns: %w", err)
 	}
-	err = helper.DstHandle.AddrAdd(lo, SynthesisAddress(r.Name))
-	if err != nil {
-		return fmt.Errorf("SetupLoopback: failed to add addr to loopback interface in specfied netns: %w", err)
+	if r.ULAName != "off" {
+		err = helper.DstHandle.AddrAdd(lo, SynthesisAddress(r.ULAName))
+		if err != nil {
+			return fmt.Errorf("SetupLoopback: failed to add addr to loopback interface in specfied netns: %w", err)
+		}
 	}
 	return nil
 }

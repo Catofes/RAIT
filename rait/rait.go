@@ -3,7 +3,6 @@ package rait
 import (
 	"fmt"
 	"github.com/BurntSushi/toml"
-	"os"
 )
 
 type RAIT struct {
@@ -15,14 +14,10 @@ type RAIT struct {
 	IFPrefix   string
 	MTU        uint16
 	FwMark     uint16
-	Name       string
+	ULAName    string
 }
 
 func RAITFromFile(filePath string) (*RAIT, error) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = RandomHex(4)
-	}
 	var r = RAIT{
 		Babeld:    "/run/rait/babeld.conf",
 		Veth:      "gravity",
@@ -30,9 +25,9 @@ func RAITFromFile(filePath string) (*RAIT, error) {
 		IFPrefix:  "rait",
 		MTU:       1400,
 		FwMark:    0x36,
-		Name:      hostname,
+		ULAName:   "off",
 	}
-	_, err = toml.DecodeFile(filePath, &r)
+	_, err := toml.DecodeFile(filePath, &r)
 	if err != nil {
 		return nil, fmt.Errorf("RAITFromFile: failed to decode rait config at %v: %w", filePath, err)
 	}
