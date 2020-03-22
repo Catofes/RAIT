@@ -10,4 +10,4 @@ require (
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200205215550-e35592f146e4
 )
 
-replace github.com/vishvananda/netlink => ./netlink
+replace github.com/vishvananda/netlink => github.com/NickCao/netlink v1.1.1

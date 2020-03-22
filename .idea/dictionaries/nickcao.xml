@@ -3,6 +3,7 @@
     <words>
       <w>babeld</w>
       <w>dirpath</w>
+      <w>dstns</w>
       <w>fakeip</w>
       <w>fullpath</w>
       <w>ifname</w>

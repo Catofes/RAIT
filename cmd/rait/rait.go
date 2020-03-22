@@ -10,7 +10,7 @@ import (
 func main() {
 	app := &cli.App{
 		Name:  "RAIT",
-		Usage: "Redundant Array of Inexpensive Tunnels",
+		Usage: "Redundant Array of Inexpensive Tunnels - Gravity Ver.",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "config",
@@ -32,22 +32,9 @@ func main() {
 						Required: false,
 						Value:    "/etc/rait/peers",
 					},
-					&cli.StringFlag{
-						Name:     "babeld",
-						Aliases:  []string{"b"},
-						Usage:    "Write babeld.conf to `PATH`",
-						Required: false,
-						Value:    "/run/rait/babeld.conf",
-					},
-					&cli.BoolFlag{
-						Name:     "no-veth",
-						Usage:    "Do not create the veth pair connecting two netns",
-						Required: false,
-						Value:    false,
-					},
 				},
 				Action: func(c *cli.Context) error {
-					return rait.EntryUp(c.String("config"), c.String("peers"), c.String("babeld"), !c.Bool("no-veth"))
+					return rait.EntryUp(c.String("config"), c.String("peers"))
 				},
 			},
 			{

@@ -88,13 +88,9 @@ func RandomHex(n int) string {
 }
 
 func SynthesisAddress(name string) *netlink.Addr {
-	rawAddr, _ := hex.DecodeString("e000")
+	rawAddr, _ := hex.DecodeString("fd36")
 	rawAddr = append(rawAddr, []byte(name)...)
 	rawAddr = append(rawAddr, make([]byte, 16)...)
 	addr, _ := netlink.ParseAddr(net.IP(rawAddr[:16]).String() + "/128")
 	return addr
-}
-
-func DecodeAddress(address string) string {
-	return string(net.ParseIP(address)[2:])
 }
