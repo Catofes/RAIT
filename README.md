@@ -33,3 +33,14 @@ PublicKey = "dDhKUs11CVqDrHlYWHuJZ4Jg/39TvkkdFthCNWqPMHQ="
 SendPort = 54632 # the port has the be consistent with the prior one
 Endpoint = "127.0.0.1" # Optional, IP only
 ```
+
+#### Render
+
+Though RAIT provides nothing beyond link local connectivity, it is intended to be used in conjunction with routing daemons to form site local connectivity, the "rait render" subcommand thus exists to generate configuration files for routing daemons, the template engine used by RAIT is [liquid](https://shopify.github.io/liquid/), and the object passed to the template engine would be:
+
+```
+IFList []string # A list of the wireguard interfaces created in the specified netns
+RAIT   RAIT # The exact representation of "rait.conf"
+```
+
+An example babeld.conf.template can be found in misc/
