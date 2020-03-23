@@ -14,23 +14,27 @@ func (r *RAIT) SetupWireguard(peers []*Peer) error {
 		return fmt.Errorf("SetupWireguard: failed to get netns helper: %w", err)
 	}
 	defer helper.Destroy()
+
 	client, err := wgctrl.New()
 	if err != nil {
 		return fmt.Errorf("SetupWireguard: failed to get wireguard client: %w", err)
 	}
 	defer client.Close()
+
 	for index, p := range peers {
+		ifname := r.IFPrefix + strconv.Itoa(index)
 		config := SynthesisWireguardConfig(r, p)
 		if config == nil {
 			continue
 		}
-		ifname := r.IFPrefix + strconv.Itoa(index)
+
 		link := &netlink.Wireguard{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: ifname,
 				MTU:  int(r.MTU),
 			},
 		}
+
 		err = helper.SrcHandle.LinkAdd(link)
 		if err != nil {
 			return fmt.Errorf("SetupWireguard: failed to create wireguard interface: %w", err)
@@ -55,30 +59,35 @@ func (r *RAIT) SetupWireguard(peers []*Peer) error {
 	return nil
 }
 
+func DestroyWireguardWithPrefix(handle *netlink.Handle, prefix string) error {
+	linkList, err := handle.LinkList()
+	if err != nil {
+		return fmt.Errorf("DestroyWireguardWithPrefix: failed to list interfaces: %w", err)
+	}
+	for _, link := range linkList {
+		if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, prefix) {
+			err = handle.LinkDel(link)
+			if err != nil {
+				return fmt.Errorf("DestroyWireguardWithPrefix: failed to delete interface: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
 func (r *RAIT) DestroyWireguard() error {
 	helper, err := NamespaceHelperFromName(r.Namespace)
 	if err != nil {
 		return fmt.Errorf("DestroyWireguard: failed to get netns helper: %w", err)
 	}
 	defer helper.Destroy()
-	linkList, err := helper.DstHandle.LinkList()
+	err = DestroyWireguardWithPrefix(helper.SrcHandle, r.IFPrefix)
 	if err != nil {
-		return fmt.Errorf("DestroyWireguard: failed to list interfaces in specified netns: %w", err)
+		return err
 	}
-	for _, link := range linkList {
-		if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, r.IFPrefix) {
-			// Never hard fail, I mean, it's just destroying links.
-			_ = helper.DstHandle.LinkDel(link)
-		}
-	}
-	linkList, err = helper.SrcHandle.LinkList()
+	err = DestroyWireguardWithPrefix(helper.DstHandle, r.IFPrefix)
 	if err != nil {
-		return fmt.Errorf("DestroyWireguard: failed to list interfaces in calling netns: %w", err)
-	}
-	for _, link := range linkList {
-		if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, r.IFPrefix) {
-			_ = helper.SrcHandle.LinkDel(link)
-		}
+		return err
 	}
 	return nil
 }

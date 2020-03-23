@@ -9,19 +9,12 @@ func EntryUp(raitFile string, peerDir string) error {
 	if err != nil {
 		return err
 	}
+	_ = CreateNamedNamespace(r.Namespace) // Won't hurt
 	err = r.SetupWireguard(ps)
 	if err != nil {
 		return err
 	}
 	err = r.SetupVethPair()
-	if err != nil {
-		return err
-	}
-	err = r.SetupLoopback()
-	if err != nil {
-		return err
-	}
-	err = r.GenerateBabeldConfig()
 	if err != nil {
 		return err
 	}
@@ -33,8 +26,13 @@ func EntryDown(raitFile string) error {
 	if err != nil {
 		return err
 	}
-	_ = r.DestroyLoopback()
-	_ = r.DestroyVethPair()
-	_ = r.DestroyWireguard()
+	err = r.DestroyWireguard()
+	if err != nil {
+		return err
+	}
+	err = r.DestroyVethPair()
+	if err != nil {
+		return err
+	}
 	return nil
 }

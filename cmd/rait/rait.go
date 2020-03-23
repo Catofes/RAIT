@@ -10,7 +10,7 @@ import (
 func main() {
 	app := &cli.App{
 		Name:  "RAIT",
-		Usage: "Redundant Array of Inexpensive Tunnels - Gravity Ver.",
+		Usage: "Redundant Array of Inexpensive Tunnels",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "config",

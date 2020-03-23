@@ -9,18 +9,24 @@ import (
 type NamespaceHelper struct {
 	SrcHandle    *netlink.Handle
 	DstHandle    *netlink.Handle
+	SrcNamespace netns.NsHandle
 	DstNamespace netns.NsHandle
 }
 
 func (h *NamespaceHelper) Destroy() {
 	h.SrcHandle.Delete()
 	h.DstHandle.Delete()
+	h.SrcHandle.Delete()
+	h.DstHandle.Delete()
 }
 
 func NamespaceHelperFromName(name string) (*NamespaceHelper, error) {
-	_ = CreateNamedNamespace(name) // It won't hurt
 	var h NamespaceHelper
 	var err error
+	h.SrcNamespace,err = netns.Get()
+	if err != nil {
+		return nil, fmt.Errorf("NamespaceHelperFromName: failed to get src ns: %w", err)
+	}
 	h.SrcHandle, err = netlink.NewHandle()
 	if err != nil {
 		return nil, fmt.Errorf("NamespaceHelperFromName: failed to get src ns handle: %w", err)

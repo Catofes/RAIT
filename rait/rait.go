@@ -8,24 +8,18 @@ import (
 type RAIT struct {
 	PrivateKey Key
 	SendPort   uint16
-	Babeld     string
-	Veth       string
 	Namespace  string
 	IFPrefix   string
 	MTU        uint16
+	Veth       string
 	FwMark     uint16
-	ULAName    string
 }
 
 func RAITFromFile(filePath string) (*RAIT, error) {
 	var r = RAIT{
-		Babeld:    "/run/rait/babeld.conf",
-		Veth:      "gravity",
-		Namespace: "gravity",
+		Namespace: "rait",
 		IFPrefix:  "rait",
 		MTU:       1400,
-		FwMark:    0x36,
-		ULAName:   "off",
 	}
 	_, err := toml.DecodeFile(filePath, &r)
 	if err != nil {
