@@ -40,6 +40,11 @@ func (r *RAIT) SetupVethPair() error {
 	if err != nil {
 		return fmt.Errorf("SetupVethPair: failed to move veth peer to calling netns: %w", err)
 	}
+
+	peer, err = helper.SrcHandle.LinkByName(r.Veth)
+	if err != nil {
+		return fmt.Errorf("SetupVethPair: failed to get veth peer in calling netns: %w", err)
+	}
 	err = helper.SrcHandle.LinkSetUp(peer)
 	if err != nil {
 		return fmt.Errorf("SetupVethPair: failed to bring up peer in calling netns: %w", err)
