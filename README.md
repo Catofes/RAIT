@@ -1,27 +1,35 @@
-## RAIT - Redundant Array of Inexpensive Tunnels
+## R.A.I.T. - Redundant Array of Inexpensive Tunnels
+#### Disclaimer
 
-##### Disclaimer: RAIT is highly opinionated and only suitable for a strictly specific configuration.
+RAIT is still in its early days of active development and **breaking changes** are expected to occur. **Linux** is the only officially supported platform.
 
-###### Configuration File Format
+#### About
 
+RAIT, despite its name, is tightly tied with wireguard as the underlying transport, supporting the automated creation of full-mesh tunnels within a cluster of nodes. The **single** goal of RAIT is to form link local connectivity.
+
+#### Architecture
+
+As wireguard natively supports Linux network namespace for the isolation of overlay and underlay traffic, RAIT moves all the wireguard interfaces into a denoted namespace, leaving the supporting UDP sockets in the **calling** namespace, and optionally creates a veth pair connecting the two namespaces.
+
+#### Configuration Files
+
+RAIT uses two sets of configuration files. "rait.conf" is the private part, residing on individual nodes holding the wireguard private key, as well as node specific configurations. "peer.conf" is the public part, with the information just enough for other nodes to form a connection to the publishing node, one common practice is for the participants to exchange "peer.conf"(s) via a git repo.
+
+###### rait.conf
 ```toml
-# Fields listed below are there default values
-# rait.conf
-PrivateKey = ""
-SendPort = 0
-Interface = "raitif" # The local peer of the veth pair
-Addresses = [] # The addresses to configure on the local peerm, CIDR requied
-Namespace = "raitns" # the netns to move the wireguard interfaces into
+PrivateKey = "MKOOS4vi0gb6U46ZwSenHK7p4XyHW/UAkUjBBF9Cz1M="
+SendPort = 54632 # A port that is unique among all the nodes in the cluster
+Namespace = "rait" # the netns to move the wireguard interfaces into
 IFPrefix = "rait" # the common prefix of the wireguard interfaces
-MTU = 1400 # the MTU of the wireguard interfaces
-FwMark = 54
-Name = "os.Hostname()" # the node name will be encoded as part of a dumb address used as ICMP src
+MTU = 1400 # the MTU of the wireguard interfaces, as well as the veth pair if enabled
 
-# peer.conf (it has to have the suffix ".conf")
-PublicKey = ""
-SendPort = 0
-Endpoint = "127.0.0.1" # Optional
+# Fields below are optional, left black to disable related feature
+Veth = "rait" # The local peer of the veth pair, the other peer will be named "host"
+FwMark = 54 # the fwmark assigned to all wireguard generated packets
 ```
-
-Note: outside NS denotes the network namespace in which rait is called, while inside NS denotes the network namespace specified in rait.conf. RAIT creates the wireguard interfaces in the outside NS, then moves them into the inside NS. Additionally, a veth pair is created across the two NSes, with addresses listed in rait.conf configured on the outside peer. To form Layer 3 connectivity, babeld is chosen as the routing daemon (actually, we need one instance of it inside each network namespace). A sane configuration file is generated for the one in inside NS. While for the one in the outside NS, its intentionally left unconfigured.
-
+###### peer.conf
+```toml
+PublicKey = "dDhKUs11CVqDrHlYWHuJZ4Jg/39TvkkdFthCNWqPMHQ="
+SendPort = 54632 # the port has the be consistent with the prior one
+Endpoint = "127.0.0.1" # Optional, IP only
+```

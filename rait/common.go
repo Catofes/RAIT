@@ -1,15 +1,12 @@
 package rait
 
 import (
-	"encoding/hex"
 	"fmt"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"math/rand"
 	"net"
-	"os"
 	"os/exec"
-	"path"
 	"time"
 )
 
@@ -66,35 +63,12 @@ func SynthesisWireguardConfig(r *RAIT, p *Peer) *wgtypes.Config {
 	}
 }
 
+// TODO: further eliminate the iproute2 dependency
 func CreateNamedNamespace(name string) error {
 	return exec.Command("ip", "netns", "add", name).Run()
 }
 
-func CreateParentDirIfNotExist(filepath string) error {
-	dirpath := path.Dir(filepath)
-	if _, err := os.Stat(dirpath); os.IsNotExist(err) {
-		return os.MkdirAll(dirpath, 0755)
-	}
-	return nil
+func DestroyNamedNamespace(name string) error {
+	return exec.Command("ip", "netns", "delete", name).Run()
 }
 
-func RandomHex(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	bytes := make([]byte, n)
-	if _, err := rand.Read(bytes); err != nil {
-		return "unlikely, very unlikely"
-	}
-	return hex.EncodeToString(bytes)
-}
-
-func SynthesisAddress(name string) *netlink.Addr {
-	rawAddr, _ := hex.DecodeString("e000")
-	rawAddr = append(rawAddr, []byte(name)...)
-	rawAddr = append(rawAddr, make([]byte, 16)...)
-	addr, _ := netlink.ParseAddr(net.IP(rawAddr[:16]).String() + "/128")
-	return addr
-}
-
-func DecodeAddress(address string) string {
-	return string(net.ParseIP(address)[2:])
-}
