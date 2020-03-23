@@ -36,3 +36,15 @@ func EntryDown(raitFile string) error {
 	}
 	return nil
 }
+
+func EntryRender(raitFile string, tmplFile string) error {
+	r, err := RAITFromFile(raitFile)
+	if err != nil {
+		return err
+	}
+	err = r.RenderTemplate(tmplFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}

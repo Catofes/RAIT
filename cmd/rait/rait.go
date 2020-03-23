@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/NickCao/RAIT/rait"
-	"log"
 	"os"
 )
 
@@ -44,11 +44,27 @@ func main() {
 					return rait.EntryDown(c.String("config"))
 				},
 			},
+			{
+				Name:  "render",
+				Usage: "render templates to generate routing daemon configurations",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "from",
+						Aliases:  []string{"f"},
+						Usage:    "Load template from `FILE`, or from stdin when not specified",
+						Required: false,
+						Value:    "",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					return rait.EntryRender(c.String("config"),c.String("from"))
+				},
+			},
 		},
 	}
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
