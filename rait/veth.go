@@ -23,7 +23,6 @@ func (r *RAIT) SetupVethPair() error {
 		},
 		PeerName: r.Veth,
 	}
-
 	err = helper.DstHandle.LinkAdd(veth)
 	if err != nil {
 		return fmt.Errorf("SetupVethPair: failed to add veth pair to specified netns: %w", err)
@@ -32,7 +31,8 @@ func (r *RAIT) SetupVethPair() error {
 	if err != nil {
 		return fmt.Errorf("SetupVethPair: failed to bring up veth peer in specified netns: %w", err)
 	}
-	peer, err := helper.DstHandle.LinkByName(r.Veth)
+
+	peer, err := helper.DstHandle.LinkByName(veth.PeerName)
 	if err != nil {
 		return fmt.Errorf("SetupVethPair: failed to get veth peer in specified netns: %w", err)
 	}
@@ -40,8 +40,7 @@ func (r *RAIT) SetupVethPair() error {
 	if err != nil {
 		return fmt.Errorf("SetupVethPair: failed to move veth peer to calling netns: %w", err)
 	}
-
-	peer, err = helper.SrcHandle.LinkByName(r.Veth)
+	peer, err = helper.SrcHandle.LinkByName(veth.PeerName)
 	if err != nil {
 		return fmt.Errorf("SetupVethPair: failed to get veth peer in calling netns: %w", err)
 	}
