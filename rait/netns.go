@@ -23,13 +23,18 @@ func (h *NamespaceHelper) Destroy() {
 func NamespaceHelperFromName(name string) (*NamespaceHelper, error) {
 	var h NamespaceHelper
 	var err error
-	h.SrcNamespace,err = netns.Get()
+	h.SrcNamespace, err = netns.Get()
 	if err != nil {
 		return nil, fmt.Errorf("NamespaceHelperFromName: failed to get src ns: %w", err)
 	}
 	h.SrcHandle, err = netlink.NewHandle()
 	if err != nil {
 		return nil, fmt.Errorf("NamespaceHelperFromName: failed to get src ns handle: %w", err)
+	}
+	if name == "off" {
+		h.DstNamespace = h.SrcNamespace
+		h.DstHandle = h.SrcHandle
+		return &h, nil
 	}
 	h.DstNamespace, err = netns.GetFromName(name)
 	if err != nil {

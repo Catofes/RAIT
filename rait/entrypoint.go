@@ -9,12 +9,12 @@ func EntryUp(raitFile string, peerDir string) error {
 	if err != nil {
 		return err
 	}
-	_ = CreateNamedNamespace(r.Namespace) // Won't hurt
-	err = r.SetupWireguard(ps)
+	_ = CreateNamedNamespace(r.Namespace)
+	err = r.SetupVethPair()
 	if err != nil {
 		return err
 	}
-	err = r.SetupVethPair()
+	err = r.SetupWireguard(ps)
 	if err != nil {
 		return err
 	}
@@ -34,6 +34,7 @@ func EntryDown(raitFile string) error {
 	if err != nil {
 		return err
 	}
+	// _ = DestroyNamedNamespace(r.Namespace)
 	return nil
 }
 

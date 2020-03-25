@@ -20,6 +20,7 @@ func RAITFromFile(filePath string) (*RAIT, error) {
 		Namespace: "rait",
 		IFPrefix:  "rait",
 		MTU:       1400,
+		Veth:      "off",
 	}
 	_, err := toml.DecodeFile(filePath, &r)
 	if err != nil {

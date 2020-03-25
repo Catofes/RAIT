@@ -65,10 +65,15 @@ func SynthesisWireguardConfig(r *RAIT, p *Peer) *wgtypes.Config {
 
 // TODO: further eliminate the iproute2 dependency
 func CreateNamedNamespace(name string) error {
+	if name == "off" {
+		return nil
+	}
 	return exec.Command("ip", "netns", "add", name).Run()
 }
 
 func DestroyNamedNamespace(name string) error {
+	if name == "off" {
+		return nil
+	}
 	return exec.Command("ip", "netns", "delete", name).Run()
 }
-

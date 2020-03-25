@@ -6,10 +6,9 @@ import (
 )
 
 func (r *RAIT) SetupVethPair() error {
-	if r.Veth == "" {
+	if r.Veth == "off" || r.Namespace == "off" {
 		return nil
 	}
-
 	helper, err := NamespaceHelperFromName(r.Namespace)
 	if err != nil {
 		return fmt.Errorf("SetupVethPair: failed to get netns helper: %w", err)
@@ -52,10 +51,9 @@ func (r *RAIT) SetupVethPair() error {
 }
 
 func (r *RAIT) DestroyVethPair() error {
-	if r.Veth == "" {
+	if r.Veth == "off" || r.Namespace == "off" {
 		return nil
 	}
-
 	helper, err := NamespaceHelperFromName(r.Namespace)
 	if err != nil {
 		return fmt.Errorf("DestroyVethPair: failed to get netns helper: %w", err)
