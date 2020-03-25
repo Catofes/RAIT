@@ -1,5 +1,6 @@
 stages:
   - build
+  - test
 
 build:binary:
   image: golang:latest
@@ -9,3 +10,8 @@ build:binary:
   artifacts:
     paths:
       - bin/rait
+
+include:
+  - template: Dependency-Scanning.gitlab-ci.yml
+  - template: License-Scanning.gitlab-ci.yml
+  - template: SAST.gitlab-ci.yml
