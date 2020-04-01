@@ -19,11 +19,11 @@ RAIT uses two sets of configuration files. "rait.conf" is the private part, resi
 ```toml
 PrivateKey = "MKOOS4vi0gb6U46ZwSenHK7p4XyHW/UAkUjBBF9Cz1M="
 SendPort = 54632 # A port that is unique among all the nodes in the cluster
-Namespace = "rait" # the netns to move the wireguard interfaces into
 IFPrefix = "rait" # the common prefix of the wireguard interfaces
 MTU = 1400 # the MTU of the wireguard interfaces, as well as the veth pair if enabled
 
-# Fields below are optional, left black to disable related feature
+# Fields below are optional, set to "off" to disable related feature
+Namespace = "rait" # the netns to move the wireguard interfaces into
 Veth = "rait" # The local peer of the veth pair, the other peer will be named "host"
 FwMark = 54 # the fwmark assigned to all wireguard generated packets
 ```
