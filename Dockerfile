@@ -1,7 +1,8 @@
 FROM golang:alpine as builder
 RUN apk add git
 COPY . /src
-RUN GO11MODULE=on go build -o /go/bin/rait /src/cmd/rait/rait.go
+WORKDIR /src/cmd/rait
+RUN go install
 
 FROM alpine:edge
 RUN apk add --no-cache iproute2
