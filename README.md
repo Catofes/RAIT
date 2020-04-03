@@ -44,3 +44,24 @@ RAIT   RAIT # The exact representation of "rait.conf"
 ```
 
 An example babeld.conf.template can be found in misc/
+
+#### Docker
+
+Well, rait do provide a docker image, which is rait, bundled with babeld, for a quick and dirty deployment.
+
+```bash
+docker run -d --restart always --network host --privileged --name rait -v /etc/rait:/etc/rait nickcao/rait
+```
+
+Within /etc/rait, the following directory structure is expected
+
+```bash
+/etc/rait
+/etc/rait/rait.conf
+/etc/rait/peers
+/etc/rait/peers/node1.conf
+...
+/etc/rait/babeld.template
+/etc/rait/postup # An optional script to run after rait up
+```
+
