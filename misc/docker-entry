@@ -1,15 +1,7 @@
 #!/bin/sh
-rait up
-
-eval $(grep Namespace /etc/rait/rait.conf | tr -d " ")
-[ -z "$Namespace" ] && Namespace=rait
-export Namespace
-
-[ -f /etc/rait/postup ] && /etc/rait/postup
-
-if [ "$Namespace" == "off" ]
-then
-  rait render -f /etc/rait/babeld.template | exec babeld -S /dev/null -c /dev/stdin -I ''
-else
-  rait render -f /etc/rait/babeld.template | exec nsexec $Namespace babeld -S /dev/null -c /dev/stdin -I ''
-fi
+set -e
+export Namespace=$(echo '{{ RAIT.Namespace }}' | rait render)
+[ "$Namespace" != "off" ] || echo "Namespace=off is unsupported" && false
+rait up || rait down && false
+[ ! -f /etc/rait/postup ] || /etc/rait/postup
+rait render -f /etc/rait/babeld.template | exec nsexec $Namespace babeld -S /dev/null -c /dev/stdin -I ''
