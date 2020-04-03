@@ -2,11 +2,12 @@
 rait up
 
 eval $(grep Namespace /etc/rait/rait.conf | tr -d " ")
+[ -z "$Namespace" ] && Namespace=rait
 export Namespace
 
 [ -f /etc/rait/postup ] && /etc/rait/postup
 
-if [ -z "$Namespace" ]
+if [ "$Namespace" == "off" ]
 then
   rait render -f /etc/rait/babeld.template | exec babeld -S /dev/null -c /dev/stdin -I ''
 else
