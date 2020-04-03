@@ -4,8 +4,7 @@ COPY . /src
 WORKDIR /src/cmd/rait
 RUN go install
 
-FROM alpine:edge
-RUN apk add --no-cache iproute2
+FROM nickcao/router:latest
 COPY --from=builder /go/bin/rait /usr/bin/rait
-ENTRYPOINT ["rait"]
-
+COPY misc/docker-entry /usr/bin/entry
+ENTRYPOINT ["entry"]
