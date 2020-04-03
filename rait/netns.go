@@ -36,6 +36,7 @@ func NamespaceHelperFromName(name string) (*NamespaceHelper, error) {
 		h.DstHandle = h.SrcHandle
 		return &h, nil
 	}
+	_ = CreateNamedNamespace(name)
 	h.DstNamespace, err = netns.GetFromName(name)
 	if err != nil {
 		return nil, fmt.Errorf("NamespaceHelperFromName: failed to get dst ns: %w", err)

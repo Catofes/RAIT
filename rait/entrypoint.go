@@ -9,7 +9,6 @@ func EntryUp(raitFile string, peerDir string) error {
 	if err != nil {
 		return err
 	}
-	_ = CreateNamedNamespace(r.Namespace)
 	err = r.SetupVethPair()
 	if err != nil {
 		return err
