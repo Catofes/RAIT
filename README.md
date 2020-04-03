@@ -50,7 +50,7 @@ An example babeld.conf.template can be found in misc/
 Well, rait do provide a docker image, which is rait, bundled with babeld, for a quick and dirty deployment.
 
 ```bash
-docker run -d --restart always --network host --privileged --name rait -v /etc/rait:/etc/rait nickcao/rait
+docker run -d --restart always --tmpfs /run --network host --privileged --name rait -v /etc/rait:/etc/rait nickcao/rait
 ```
 
 Within /etc/rait, the following directory structure is expected
