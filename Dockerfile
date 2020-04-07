@@ -5,6 +5,7 @@ WORKDIR /src/cmd/rait
 RUN go install
 
 FROM nickcao/router:latest
+RUN apk add --no-cache wireguard-tools-wg
 COPY --from=builder /go/bin/rait /usr/bin/rait
 COPY misc/docker-entry /usr/bin/entry
 ENTRYPOINT ["entry"]
