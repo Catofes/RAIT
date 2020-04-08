@@ -1,19 +1,15 @@
 package rait
 
 func EntryUp(raitFile string, peerDir string) error {
-	r, err := RAITFromFile(raitFile)
+	client, err := ClientFromFile(raitFile)
 	if err != nil {
 		return err
 	}
-	ps, err := PeersFromDirectory(peerDir)
+	peers, err := PeersFromDirectory(peerDir)
 	if err != nil {
 		return err
 	}
-	err = r.SetupVethPair()
-	if err != nil {
-		return err
-	}
-	err = r.SetupWireguard(ps)
+	err = client.SetupWireguardInterfaces(peers)
 	if err != nil {
 		return err
 	}
@@ -21,28 +17,23 @@ func EntryUp(raitFile string, peerDir string) error {
 }
 
 func EntryDown(raitFile string) error {
-	r, err := RAITFromFile(raitFile)
+	client, err := ClientFromFile(raitFile)
 	if err != nil {
 		return err
 	}
-	err = r.DestroyWireguard()
+	err = client.DestroyWireguardInterfaces()
 	if err != nil {
 		return err
 	}
-	err = r.DestroyVethPair()
-	if err != nil {
-		return err
-	}
-	// _ = DestroyNamedNamespace(r.Namespace)
 	return nil
 }
 
 func EntryRender(raitFile string, tmplFile string) error {
-	r, err := RAITFromFile(raitFile)
+	client, err := ClientFromFile(raitFile)
 	if err != nil {
 		return err
 	}
-	err = r.RenderTemplate(tmplFile)
+	err = client.RenderTemplate(tmplFile)
 	if err != nil {
 		return err
 	}
