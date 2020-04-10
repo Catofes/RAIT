@@ -1,11 +1,12 @@
 package rait
 
-func EntryUp(raitFile string, peerDir string) error {
-	client, err := ClientFromFile(raitFile)
+func EntryUp(raitFile string, peerPath string) error {
+	client, err := ClientFromURL(raitFile)
 	if err != nil {
 		return err
 	}
-	peers, err := PeersFromDirectory(peerDir)
+	var peers []*Peer
+	peers, err = PeersFromURL(peerPath)
 	if err != nil {
 		return err
 	}
@@ -17,7 +18,7 @@ func EntryUp(raitFile string, peerDir string) error {
 }
 
 func EntryDown(raitFile string) error {
-	client, err := ClientFromFile(raitFile)
+	client, err := ClientFromURL(raitFile)
 	if err != nil {
 		return err
 	}
@@ -29,7 +30,7 @@ func EntryDown(raitFile string) error {
 }
 
 func EntryRender(raitFile string, tmplFile string) error {
-	client, err := ClientFromFile(raitFile)
+	client, err := ClientFromURL(raitFile)
 	if err != nil {
 		return err
 	}

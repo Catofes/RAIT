@@ -27,17 +27,23 @@ type Client struct {
 	FwMark             int
 }
 
-// ClientFromFile loads client configuration from a toml file
-func ClientFromFile(filePath string) (*Client, error) {
+// ClientFromURL loads client configuration from a toml file
+func ClientFromURL(url string) (*Client, error) {
+	var data []byte
+	var err error
+	data, err = utils.FileFromURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client from url: %w", err)
+	}
 	var client = Client{
 		InterfaceNamespace: "current",
 		TransitNamespace:   "current",
 		InterfacePrefix:    "rait",
 		MTU:                1400,
 	}
-	_, err := toml.DecodeFile(filePath, &client)
+	_, err = toml.Decode(string(data), &client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode rait config at %v: %w", filePath, err)
+		return nil, err
 	}
 	return &client, nil
 }

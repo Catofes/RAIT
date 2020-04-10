@@ -5,22 +5,17 @@ import (
 	"github.com/osteele/liquid"
 	"github.com/vishvananda/netlink"
 	"gitlab.com/NickCao/RAIT/rait/internal/utils"
-	"io/ioutil"
 	"os"
 	"strings"
 )
 
 // RenderTemplate gathers rait related information and renders the liquid template pro
 func (client *Client) RenderTemplate(tmplFile string) error {
-	var tmpl []byte
+	var data []byte
 	var err error
-	if tmplFile == "" {
-		tmpl, err = ioutil.ReadAll(os.Stdin)
-	} else {
-		tmpl, err = ioutil.ReadFile(tmplFile)
-	}
+	data, err = utils.FileFromURL(tmplFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get template from url: %w", err)
 	}
 
 	var helper *utils.NetlinkHelper
@@ -35,14 +30,14 @@ func (client *Client) RenderTemplate(tmplFile string) error {
 	if err != nil {
 		return fmt.Errorf("failed to list interface: %w", err)
 	}
-	var IFList []string
+	var LinkList []string
 	for _, link := range linkList {
 		if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, client.InterfacePrefix) {
-			IFList = append(IFList, link.Attrs().Name)
+			LinkList = append(LinkList, link.Attrs().Name)
 		}
 	}
 	var out []byte
-	out, err = liquid.NewEngine().ParseAndRender(tmpl, map[string]interface{}{"IFList": IFList, "Client": client})
+	out, err = liquid.NewEngine().ParseAndRender(data, map[string]interface{}{"LinkList": LinkList, "Client": client})
 	_, err = fmt.Fprint(os.Stdout, string(out))
 	if err != nil {
 		return err

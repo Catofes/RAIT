@@ -2,6 +2,9 @@ stages:
   - build
   - test
 
+variables:
+  CGO_ENABLED: 0
+
 build:binary:
   image: golang:latest
   stage: build
@@ -10,18 +13,6 @@ build:binary:
   artifacts:
     paths:
       - bin/rait
-
-build:image:
-  image: docker:19.03.1
-  stage: build
-  services:
-    - docker:19.03.1-dind 
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG .
-    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG $CI_REGISTRY_IMAGE:latest
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
-    - docker push $CI_REGISTRY_IMAGE:latest
 
 include:
   - template: Dependency-Scanning.gitlab-ci.yml
