@@ -15,7 +15,7 @@ func main() {
 			&cli.StringFlag{
 				Name:     "config",
 				Aliases:  []string{"c"},
-				Usage:    "Load config from `FILE`",
+				Usage:    "Load config from `URL`",
 				Required: false,
 				Value:    "/etc/rait/rait.conf",
 			},
@@ -28,7 +28,7 @@ func main() {
 					&cli.StringFlag{
 						Name:     "peers",
 						Aliases:  []string{"p"},
-						Usage:    "Load peers from `DIR`",
+						Usage:    "Load peers from `URL`",
 						Required: false,
 						Value:    "/etc/rait/peers",
 					},
@@ -51,13 +51,13 @@ func main() {
 					&cli.StringFlag{
 						Name:     "from",
 						Aliases:  []string{"f"},
-						Usage:    "Load template from `FILE`, or from stdin when not specified",
+						Usage:    "Load template from `URL`",
 						Required: false,
-						Value:    "",
+						Value:    "stdin://",
 					},
 				},
 				Action: func(c *cli.Context) error {
-					return rait.EntryRender(c.String("config"),c.String("from"))
+					return rait.EntryRender(c.String("config"), c.String("from"))
 				},
 			},
 		},

@@ -11,6 +11,7 @@
       <w>ifprefix</w>
       <w>iproute</w>
       <w>linklocal</w>
+      <w>netlink</w>
       <w>netns</w>
       <w>peerconfig</w>
       <w>pfile</w>
@@ -25,6 +26,7 @@
       <w>unmarshaler</w>
       <w>veth</w>
       <w>vethname</w>
+      <w>wgclient</w>
       <w>wgctrl</w>
       <w>wgtypes</w>
       <w>wireguard</w>

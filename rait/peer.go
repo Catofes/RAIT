@@ -3,50 +3,40 @@ package rait
 import (
 	"fmt"
 	"github.com/BurntSushi/toml"
-	"io/ioutil"
+	"gitlab.com/NickCao/RAIT/rait/internal/types"
+	"gitlab.com/NickCao/RAIT/rait/internal/utils"
 	"net"
-	"os"
-	"path"
-	"strings"
 )
 
+// Peer represents a peer, which Client connects to
 type Peer struct {
-	PublicKey Key
-	Endpoint  net.IP
-	SendPort  uint16
+	PublicKey types.Key // The public key of the peer
+	Endpoint  net.IP    // The ip address of the peer, support for domain name is deliberately removed to avoid choosing between multiple address
+	SendPort  int       // The listen port of client for this peer
 }
 
-func PeerFromFile(filePath string) (*Peer, error) {
-	var p = Peer{
-		Endpoint: net.ParseIP("127.0.0.1"),
-	}
-	var err error
-	_, err = toml.DecodeFile(filePath, &p)
-	if err != nil {
-		return nil, fmt.Errorf("PeerFromFile: failed to decode peer config at %v: %w", filePath, err)
-	}
-	return &p, nil
+// PeerList represents a list of peers, to workaround the absence of top level array in toml
+type PeerList struct {
+	Peers []*Peer
 }
 
-func PeersFromDirectory(dirPath string) ([]*Peer, error) {
-	var ps []*Peer
-	var fileList []os.FileInfo
+// PeersFromURL load peer configurations from the given URL
+func PeersFromURL(url string) ([]*Peer, error) {
+	var data []byte
 	var err error
-	fileList, err = ioutil.ReadDir(dirPath)
+	data, err = utils.FileFromURL(url)
 	if err != nil {
-		return nil, fmt.Errorf("PeersFromDirectory: failed to list directory at %v: %w", dirPath, err)
+		return nil, fmt.Errorf("failed to get peers from url: %w", err)
 	}
-	for _, fileInfo := range fileList {
-		var p *Peer
-		var err error
-		if fileInfo.IsDir() || !strings.HasSuffix(fileInfo.Name(), ".conf") {
-			continue
-		}
-		p, err = PeerFromFile(path.Join(dirPath, fileInfo.Name()))
-		if err != nil {
-			return nil, err
-		}
-		ps = append(ps, p)
+	var peerList PeerList
+	_, err = toml.Decode(string(data), &peerList)
+	if err != nil {
+		return nil, err
 	}
-	return ps, nil
+	for _, peer := range peerList.Peers {
+		if peer.Endpoint == nil {
+			peer.Endpoint = net.ParseIP("127.0.0.1") // Dirty but working
+		}
+	}
+	return peerList.Peers, nil
 }

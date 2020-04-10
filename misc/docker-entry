@@ -1,9 +1,0 @@
-#!/bin/sh
-set -e
-export Namespace=$(echo '{{ RAIT.Namespace }}' | rait render)
-[ "$Namespace" != "off" ] || (echo "Namespace=off is unsupported" && false)
-rait up || (rait down && false)
-[ ! -f /etc/rait/postup ] || /etc/rait/postup
-rait render -f /etc/rait/babeld.template > /run/babeld.conf
-exec nsexec $Namespace babeld -S /dev/null -c /run/babeld.conf -I ''
-
