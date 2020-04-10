@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Client represents the control structure of rait
@@ -129,35 +130,34 @@ func (client *Client) SetupWireguardInterface(peer *Peer, interfaceSuffix string
 		return fmt.Errorf("failed to add link local address to interface: %w", err)
 	}
 	// Since wgctrl does not currently support specifying a netns, we have to move into interface netns to configure it
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	var currentNamespace netns.NsHandle
-	currentNamespace, err = netns.Get()
+	// Borrowed some magic from libpod
+	var wtg sync.WaitGroup
+	wtg.Add(1)
+	go (func() {
+		defer wtg.Done()
+		runtime.LockOSThread()
+		err = netns.Set(helperInterface.NamespaceHandle)
+		if err != nil {
+			err = fmt.Errorf("failed to move into interface netns: %w", err)
+			return
+		}
+		var wg *wgctrl.Client
+		wg, err = wgctrl.New()
+		if err != nil {
+			err = fmt.Errorf("failed to get wireguard control socket: %w", err)
+			return
+		}
+		defer wg.Close()
+		err = wg.ConfigureDevice(ifName, *config)
+		if err != nil {
+			err = fmt.Errorf("failed to configure wireguard interface: %w", err)
+			return
+		}
+	})()
+	wtg.Wait()
 	if err != nil {
 		_ = helperInterface.NetlinkHandle.LinkDel(link)
-		return fmt.Errorf("failed to get handle to interface netns: %w", err)
-	}
-	err = netns.Set(helperInterface.NamespaceHandle)
-	if err != nil {
-		_ = helperInterface.NetlinkHandle.LinkDel(link)
-		return fmt.Errorf("failed to move into interface netns: %w", err)
-	}
-	var wg *wgctrl.Client
-	wg, err = wgctrl.New()
-	if err != nil {
-		_ = helperInterface.NetlinkHandle.LinkDel(link)
-		return fmt.Errorf("failed to get wireguard control socket: %w", err)
-	}
-	defer wg.Close()
-	err = wg.ConfigureDevice(ifName, *config)
-	if err != nil {
-		_ = helperInterface.NetlinkHandle.LinkDel(link)
-		return fmt.Errorf("failed to configure wireguard interface: %w", err)
-	}
-	err = netns.Set(currentNamespace)
-	if err != nil {
-		_ = helperInterface.NetlinkHandle.LinkDel(link)
-		return fmt.Errorf("failed to move back to current netns: %w", err)
+		return fmt.Errorf("failed to configure interface: %w", err)
 	}
 	return nil
 }

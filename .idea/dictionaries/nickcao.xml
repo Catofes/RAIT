@@ -10,6 +10,7 @@
       <w>ifnames</w>
       <w>ifprefix</w>
       <w>iproute</w>
+      <w>libpod</w>
       <w>linklocal</w>
       <w>netlink</w>
       <w>netns</w>
