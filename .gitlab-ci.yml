@@ -9,7 +9,7 @@ build:binary:
   image: golang:latest
   stage: build
   script:
-    - go build -o bin/rait cmd/rait/rait.go
+    - go build -ldflags "-X main.Version=`git describe --tags` -X 'main.Buildtime=`date -u --rfc-3339=seconds`'" -o bin/rait cmd/rait/rait.go
   artifacts:
     paths:
       - bin/rait

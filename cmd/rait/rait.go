@@ -7,6 +7,11 @@ import (
 	"os"
 )
 
+var (
+	Version string
+	Buildtime string
+)
+
 func main() {
 	app := &cli.App{
 		Name:  "RAIT",
@@ -62,6 +67,7 @@ func main() {
 			},
 		},
 	}
+	app.Version = Version + " " + Buildtime
 	err := app.Run(os.Args)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
