@@ -9,7 +9,6 @@ import (
 
 var (
 	Version string
-	Buildtime string
 )
 
 func main() {
@@ -67,7 +66,7 @@ func main() {
 			},
 		},
 	}
-	app.Version = Version + " " + Buildtime
+	app.Version = Version
 	err := app.Run(os.Args)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
