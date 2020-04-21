@@ -10,7 +10,7 @@ func EntryUp(raitFile string, peerPath string) error {
 	if err != nil {
 		return err
 	}
-	err = client.SetupWireguardInterfaces(peers)
+	err = client.SyncWireguardInterfaces(peers)
 	if err != nil {
 		return err
 	}
@@ -22,7 +22,7 @@ func EntryDown(raitFile string) error {
 	if err != nil {
 		return err
 	}
-	err = client.DestroyWireguardInterfaces()
+	err = client.SyncWireguardInterfaces(nil)
 	if err != nil {
 		return err
 	}
