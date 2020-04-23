@@ -80,7 +80,7 @@ func (client *Client) GenerateWireguardConfig(peer *Peer) *wgtypes.Config {
 				UpdateOnly:   false,
 				PresharedKey: nil,
 				Endpoint: &net.UDPAddr{
-					IP:   peer.Endpoint,
+					IP:   peer.Endpoint.IP,
 					Port: client.SendPort,
 				},
 				ReplaceAllowedIPs: true,

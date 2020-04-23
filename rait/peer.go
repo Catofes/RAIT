@@ -10,9 +10,9 @@ import (
 
 // Peer represents a peer, which Client connects to
 type Peer struct {
-	PublicKey types.Key // The public key of the peer
-	Endpoint  net.IP    // The ip address of the peer, support for domain name is deliberately removed to avoid choosing between multiple address
-	SendPort  int       // The listen port of client for this peer
+	PublicKey types.Key  // The public key of the peer
+	Endpoint  types.Addr // The ip address of the peer, support for domain name is deliberately removed to avoid choosing between multiple address
+	SendPort  int        // The listen port of client for this peer
 }
 
 // PeerList represents a list of peers, to workaround the absence of top level array in toml
@@ -34,8 +34,8 @@ func PeersFromURL(url string) ([]*Peer, error) {
 		return nil, err
 	}
 	for _, peer := range peerList.Peers {
-		if peer.Endpoint == nil {
-			peer.Endpoint = net.ParseIP("127.0.0.1") // Dirty but working
+		if peer.Endpoint.IP == nil {
+			peer.Endpoint.IP = net.ParseIP("127.0.0.1") // Dirty but working
 		}
 	}
 	return peerList.Peers, nil

@@ -12,6 +12,7 @@
       <w>iproute</w>
       <w>libpod</w>
       <w>linklocal</w>
+      <w>maddrs</w>
       <w>netlink</w>
       <w>netns</w>
       <w>peerconfig</w>
