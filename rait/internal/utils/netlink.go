@@ -17,22 +17,17 @@ type NetlinkHelper struct {
 	NamespaceHandle netns.NsHandle
 }
 
-func (helper *NetlinkHelper) Destroy() error {
-	var err error
+func (helper *NetlinkHelper) Destroy() {
 	helper.NetlinkHandle.Delete()
-	err = helper.NamespaceHandle.Close()
-	if err != nil {
-		return err
-	}
-	return nil
+	_ = helper.NamespaceHandle.Close()
 }
 
-// NetlinkHelperFromName creates a NetlinkHelper from the specified netns, or "current" from the original netns
+// NetlinkHelperFromName creates a NetlinkHelper from the specified netns, or empty from the original netns
 func NetlinkHelperFromName(name string) (*NetlinkHelper, error) {
 	var helper NetlinkHelper
 	var err error
 	switch name {
-	case "current":
+	case "":
 		helper.NamespaceHandle, err = netns.Get()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get namespace handle: %w", err)

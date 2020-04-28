@@ -6,6 +6,7 @@
       <w>dstns</w>
       <w>fakeip</w>
       <w>fullpath</w>
+      <w>fwmark</w>
       <w>ifname</w>
       <w>ifnames</w>
       <w>ifprefix</w>
@@ -23,6 +24,7 @@
       <w>raitif</w>
       <w>raitns</w>
       <w>rxcost</w>
+      <w>stdin</w>
       <w>tmpfile</w>
       <w>toml</w>
       <w>tomls</w>

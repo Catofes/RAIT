@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/NickCao/RAIT/rait"
+	"log"
 	"os"
 )
 
@@ -34,18 +34,38 @@ func main() {
 						Aliases:  []string{"p"},
 						Usage:    "Load peers from `URL`",
 						Required: false,
-						Value:    "/etc/rait/peers",
+						Value:    "",
 					},
 				},
 				Action: func(c *cli.Context) error {
-					return rait.EntryUp(c.String("config"), c.String("peers"))
+					var client *rait.Client
+					var err error
+					client, err = rait.LoadClientFromPath(c.String("config"))
+					if err != nil {
+						return err
+					}
+					if c.String("peers") != "" {
+						client.Peers = c.String("peers")
+					}
+					var peers []*rait.Peer
+					peers, err = rait.LoadPeersFromPath(client.Peers)
+					if err != nil {
+						return err
+					}
+					return client.SyncWireguardInterfaces(peers)
 				},
 			},
 			{
 				Name:  "down",
 				Usage: "destroy the wireguard mesh",
 				Action: func(c *cli.Context) error {
-					return rait.EntryDown(c.String("config"))
+					var client *rait.Client
+					var err error
+					client, err = rait.LoadClientFromPath(c.String("config"))
+					if err != nil {
+						return err
+					}
+					return client.SyncWireguardInterfaces([]*rait.Peer{})
 				},
 			},
 			{
@@ -61,7 +81,22 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					return rait.EntryRender(c.String("config"), c.String("from"))
+					var client *rait.Client
+					var err error
+					client, err = rait.LoadClientFromPath(c.String("config"))
+					if err != nil {
+						return err
+					}
+					var output []byte
+					output, err = client.RenderTemplate(c.String("from"))
+					if err != nil {
+						return err
+					}
+					_, err = os.Stdout.Write(output)
+					if err != nil {
+						return err
+					}
+					return nil
 				},
 			},
 		},
@@ -69,7 +104,6 @@ func main() {
 	app.Version = Version
 	err := app.Run(os.Args)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }
