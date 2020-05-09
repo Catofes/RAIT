@@ -10,37 +10,39 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
-	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 var ErrPeerIsSelf = errors.New("the peer is the same node as client")
 var ErrIncompatibleAF = errors.New("the peer has address family different from client")
 
 // GenerateWireguardConfig generates wireguard interface configuration for specified peer
-func (client *Client) GenerateWireguardConfig(peer *Peer) (string, *wgtypes.Config, error) {
+func (client *Client) GenerateWireguardConfig(peer *Peer) (name string, config *wgtypes.Config, err error) {
 	if client.SendPort == peer.SendPort {
-		return "", nil, ErrPeerIsSelf
+		err = ErrPeerIsSelf
+		return
 	}
 	if client.AddressFamily != peer.AddressFamily {
-		return "", nil, ErrIncompatibleAF
+		err = ErrIncompatibleAF
+		return
 	}
 	var endpoint *net.IPAddr
-	var err error
-	endpoint, err = net.ResolveIPAddr(peer.AddressFamily.String(), peer.Endpoint)
+	endpoint, err = peer.Endpoint.Resolve(peer.AddressFamily)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to resolve endpoint endpoint address: %w", err)
+		err = fmt.Errorf("GenerateWireguardConfig: failed to resolve endpoint endpoint address %s: %w", peer.Endpoint, err)
+		return
 	}
-	return client.InterfacePrefix + strconv.Itoa(peer.SendPort), &wgtypes.Config{
-		PrivateKey:   &client.PrivateKey.Key,
+	name = client.InterfacePrefix + strconv.Itoa(peer.SendPort)
+	_pk := wgtypes.Key(client.PrivateKey)
+	config = &wgtypes.Config{
+		PrivateKey:   &_pk,
 		ListenPort:   &peer.SendPort,
 		FirewallMark: client.FwMark,
 		ReplacePeers: true,
 		Peers: []wgtypes.PeerConfig{
 			{
-				PublicKey:    peer.PublicKey.Key,
+				PublicKey:    wgtypes.Key(peer.PublicKey),
 				Remove:       false,
 				UpdateOnly:   false,
 				PresharedKey: nil,
@@ -52,101 +54,99 @@ func (client *Client) GenerateWireguardConfig(peer *Peer) (string, *wgtypes.Conf
 				AllowedIPs:        []net.IPNet{*consts.IP4NetAll, *consts.IP6NetAll},
 			},
 		},
-	}, nil
+	}
+	return
 }
 
 // SetupWireguardInterface setups wireguard interface for specified peer
-func (client *Client) SetupWireguardInterface(peer *Peer) (netlink.Link, error) {
+func (client *Client) SetupWireguardInterface(peer *Peer) (link netlink.Link, err error) {
 	var name string
 	var config *wgtypes.Config
-	var err error
 	name, config, err = client.GenerateWireguardConfig(peer)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	var interfaceHelper *utils.NetlinkHelper
-	var transitHelper *utils.NetlinkHelper
-	interfaceHelper, err = utils.NetlinkHelperFromName(client.InterfaceNamespace)
-	if err != nil {
-		return nil, err
-	}
-	defer interfaceHelper.Destroy()
-	transitHelper, err = utils.NetlinkHelperFromName(client.TransitNamespace)
-	if err != nil {
-		return nil, err
-	}
-	defer transitHelper.Destroy()
+	err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
+		link, err = handle.LinkByName(name)
+		return
+	})
 
-	var link netlink.Link
-	link, err = interfaceHelper.NetlinkHandle.LinkByName(name)
 	if err == nil {
 		// TODO: check whether the link is in desired state
-	} else {
-		if _, ok := err.(netlink.LinkNotFoundError); ok {
+	} else if _, ok := err.(netlink.LinkNotFoundError); ok {
+		err = utils.WithNetns(client.TransitNamespace, func(handle *netlink.Handle) (err error) {
 			link = &netlink.Wireguard{
 				LinkAttrs: netlink.LinkAttrs{
 					Name: name,
 					MTU:  client.MTU,
 				},
 			}
-			err = transitHelper.NetlinkHandle.LinkAdd(link)
+			err = handle.LinkAdd(link)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create interface in transit netns: %w", err)
+				err = fmt.Errorf("SetupWireguardInterface: failed to create interface in transit netns: %w", err)
+				return
 			}
-			err = transitHelper.NetlinkHandle.LinkSetNsFd(link, int(interfaceHelper.NamespaceHandle))
+			var ns netns.NsHandle
+			ns, err = utils.GetNetns(client.TransitNamespace)
 			if err != nil {
-				_ = transitHelper.NetlinkHandle.LinkDel(link)
-				return nil, fmt.Errorf("failed to move interface into interface netns: %w", err)
+				return
 			}
-			err = interfaceHelper.NetlinkHandle.LinkSetUp(link)
+			defer ns.Close()
+			err = handle.LinkSetNsFd(link, int(ns))
 			if err != nil {
-				_ = interfaceHelper.NetlinkHandle.LinkDel(link)
-				return nil, fmt.Errorf("failed to bring interface up: %w", err)
+				_ = handle.LinkDel(link)
+				err = fmt.Errorf("SetupWireguardInterface: failed to create interface in transit netns: %w", err)
+				return
 			}
-			err = interfaceHelper.NetlinkHandle.AddrAdd(link, utils.GenerateLinklocalAddress())
-			if err != nil {
-				_ = interfaceHelper.NetlinkHandle.LinkDel(link)
-				return nil, fmt.Errorf("failed to add link local address to interface: %w", err)
-			}
-		} else {
-			return nil, err
+			return
+		})
+		if err != nil {
+			return
 		}
+
+		err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
+			err = handle.LinkSetUp(link)
+			if err != nil {
+				_ = handle.LinkDel(link)
+				err = fmt.Errorf("SetupWireguardInterface: failed to bring interface up: %w", err)
+				return
+			}
+			err = handle.AddrAdd(link, utils.GenerateLinklocalAddress())
+			if err != nil {
+				_ = handle.LinkDel(link)
+				err = fmt.Errorf("SetupWireguardInterface: failed to add link local address to interface: %w", err)
+				return
+			}
+			return
+		})
+		if err != nil {
+			return
+		}
+	} else {
+		return
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go (func() {
-		defer wg.Done()
-		runtime.LockOSThread()
-		err = netns.Set(interfaceHelper.NamespaceHandle)
+	err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
+		var wg *wgctrl.Client
+		wg, err = wgctrl.New()
 		if err != nil {
-			err = fmt.Errorf("failed to move into interface netns: %w", err)
+			err = fmt.Errorf("SetupWireguardInterface: failed to get wireguard control socket: %w", err)
 			return
 		}
-		var wgc *wgctrl.Client
-		wgc, err = wgctrl.New()
+		defer wg.Close()
+		err = wg.ConfigureDevice(link.Attrs().Name, *config)
 		if err != nil {
-			err = fmt.Errorf("failed to get wireguard control socket: %w", err)
+			err = fmt.Errorf("SetupWireguardInterface: failed to configure wireguard interface: %w", err)
 			return
 		}
-		defer wgc.Close()
-		err = wgc.ConfigureDevice(link.Attrs().Name, *config)
-		if err != nil {
-			err = fmt.Errorf("failed to configure wireguard interface: %w", err)
-			return
-		}
-	})()
-	wg.Wait()
-	if err != nil {
-		_ = interfaceHelper.NetlinkHandle.LinkDel(link)
-		return nil, fmt.Errorf("failed to configure interface: %w", err)
-	}
-	return link, nil
+		return
+	})
+	return
 }
 
 // SyncWireguardInterfaces ensures the state of the interfaces matches the configuration files
-func (client *Client) SyncWireguardInterfaces(peers []*Peer) error {
+func (client *Client) SyncWireguardInterfaces(peers []*Peer) (err error) {
 	var targetLinkList []netlink.Link
 	for _, peer := range peers {
 		var link netlink.Link
@@ -161,30 +161,29 @@ func (client *Client) SyncWireguardInterfaces(peers []*Peer) error {
 		targetLinkList = append(targetLinkList, link)
 	}
 
-	var interfaceHelper *utils.NetlinkHelper
-	var err error
-	interfaceHelper, err = utils.NetlinkHelperFromName(client.InterfaceNamespace)
+	var currentLinkList []netlink.Link
+	err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
+		currentLinkList, err = handle.LinkList()
+		return
+	})
 	if err != nil {
 		return err
-	}
-	defer interfaceHelper.Destroy()
-
-	var currentLinkList []netlink.Link
-	currentLinkList, err = interfaceHelper.NetlinkHandle.LinkList()
-	if err != nil {
-		return fmt.Errorf("failed to list links: %w", err)
 	}
 
 	var diff []netlink.Link
 	diff = utils.LinkListDiff(currentLinkList, targetLinkList)
 
-	for _, link := range diff {
-		if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, client.InterfacePrefix) {
-			err = interfaceHelper.NetlinkHandle.LinkDel(link)
-			if err != nil {
-				return fmt.Errorf("failed to delete interface: %w", err)
+	err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
+		for _, link := range diff {
+			if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, client.InterfacePrefix) {
+				err = handle.LinkDel(link)
+				if err != nil {
+					err = fmt.Errorf("SyncWireguardInterfaces: failed to delete interface: %w", err)
+					return
+				}
 			}
 		}
-	}
-	return nil
+		return
+	})
+	return
 }

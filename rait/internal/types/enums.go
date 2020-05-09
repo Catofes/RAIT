@@ -1,25 +1,14 @@
 package types
 
-type AF int
+type AF string
 
 const (
-	AF_UNSPEC AF = iota
-	AF_INET
-	AF_INET6
+	AF_UNSPEC AF = ""
+	AF_INET      = "ip4"
+	AF_INET6     = "ip6"
 )
 
-func (af *AF) UnmarshalText(text []byte) error {
-	switch string(text) {
-	case "ip4":
-		*af = AF_INET
-	case "ip6":
-		*af = AF_INET6
-	default:
-		*af = AF_UNSPEC
-	}
-	return nil
-}
-
-func (af *AF) String() string {
-	return []string{"unspec", "ip4", "ip6"}[*af]
+func (af *AF) UnmarshalText(text []byte) (err error) {
+	*af = AF(text)
+	return
 }

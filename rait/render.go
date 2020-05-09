@@ -24,25 +24,27 @@ func (client *Client) RenderTemplate(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	var helper *utils.NetlinkHelper
-	helper, err = utils.NetlinkHelperFromName(client.InterfaceNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get netlink helper: %w", err)
-	}
-	defer helper.Destroy()
 
-	var rawLinkList []netlink.Link
-	rawLinkList, err = helper.NetlinkHandle.LinkList()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list interface: %w", err)
-	}
 
 	var LinkList []string
-	for _, link := range rawLinkList {
-		if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, client.InterfacePrefix) {
-			LinkList = append(LinkList, link.Attrs().Name)
+	err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
+		var rawLinkList []netlink.Link
+		rawLinkList, err = handle.LinkList()
+		if err != nil {
+			err = fmt.Errorf("failed to list interface: %w", err)
+			return
 		}
+		for _, link := range rawLinkList {
+			if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, client.InterfacePrefix) {
+				LinkList = append(LinkList, link.Attrs().Name)
+			}
+		}
+		return
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	var output []byte
 	output, err = liquid.NewEngine().ParseAndRender(source, map[string]interface{}{"LinkList": LinkList, "Client": client})
 	if err != nil {
