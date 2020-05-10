@@ -7,6 +7,7 @@
       <w>fakeip</w>
       <w>fullpath</w>
       <w>fwmark</w>
+      <w>ifgroup</w>
       <w>ifname</w>
       <w>ifnames</w>
       <w>ifprefix</w>

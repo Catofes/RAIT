@@ -7,7 +7,6 @@ import (
 	"gitlab.com/NickCao/RAIT/rait/internal/utils"
 	"io"
 	"io/ioutil"
-	"strings"
 )
 
 // RenderTemplate gathers information about interfaces and renders the liquid template
@@ -25,28 +24,19 @@ func (client *Client) RenderTemplate(path string) ([]byte, error) {
 		return nil, err
 	}
 
-
-	var LinkList []string
-	err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
-		var rawLinkList []netlink.Link
-		rawLinkList, err = handle.LinkList()
-		if err != nil {
-			err = fmt.Errorf("failed to list interface: %w", err)
-			return
-		}
-		for _, link := range rawLinkList {
-			if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, client.InterfacePrefix) {
-				LinkList = append(LinkList, link.Attrs().Name)
-			}
-		}
-		return
-	})
+	var rawLinkList []netlink.Link
+	rawLinkList, err = client.ListInterfaces()
 	if err != nil {
 		return nil, err
 	}
 
+	var linkList []string
+	for _, link := range rawLinkList {
+		linkList = append(linkList, link.Attrs().Name)
+	}
+
 	var output []byte
-	output, err = liquid.NewEngine().ParseAndRender(source, map[string]interface{}{"LinkList": LinkList, "Client": client})
+	output, err = liquid.NewEngine().ParseAndRender(source, map[string]interface{}{"LinkList": rawLinkList, "Client": client})
 	if err != nil {
 		return nil, fmt.Errorf("failed to render template: %w", err)
 	}

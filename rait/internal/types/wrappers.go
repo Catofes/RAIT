@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
 )
@@ -15,20 +16,26 @@ func (k *Key) UnmarshalText(text []byte) (err error) {
 	return
 }
 
-// Endpoint is a wrapper around string, and implements Resolve
-type Endpoint string
+type AF string
 
-func (e *Endpoint) Resolve(af AF) (*net.IPAddr, error) {
-	if af == AF_UNSPEC {
-		af = AF_INET
-	}
-	if *e == "" {
-		switch af {
-		case AF_INET:
-			*e = "127.0.0.1"
-		case AF_INET6:
-			*e = "::1"
+func (a AF) Equal(b AF) bool {
+	return a == b
+}
+
+func (a AF) ResolveIP(name string) (addr *net.IPAddr, err error) {
+	switch a {
+	case "ip4":
+		if name == "" {
+			name = "127.0.0.1"
 		}
+		addr, err = net.ResolveIPAddr("ip4", name)
+	case "ip6":
+		if name == "" {
+			name = "::1"
+		}
+		addr, err = net.ResolveIPAddr("ip6", name)
+	default:
+		err = fmt.Errorf("ResolveIP: unsupported address family: %s", a)
 	}
-	return net.ResolveIPAddr(string(af), string(*e))
+	return
 }

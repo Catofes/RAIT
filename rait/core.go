@@ -14,23 +14,18 @@ import (
 	"strings"
 )
 
-var ErrPeerIsSelf = errors.New("the peer is the same node as client")
-var ErrIncompatibleAF = errors.New("the peer has address family different from client")
+var ErrExpected = errors.New("some expected error has occurred")
 
 // GenerateWireguardConfig generates wireguard interface configuration for specified peer
 func (client *Client) GenerateWireguardConfig(peer *Peer) (name string, config *wgtypes.Config, err error) {
-	if client.SendPort == peer.SendPort {
-		err = ErrPeerIsSelf
-		return
-	}
-	if client.AddressFamily != peer.AddressFamily {
-		err = ErrIncompatibleAF
+	if client.SendPort == peer.SendPort || !client.AddressFamily.Equal(peer.AddressFamily) {
+		err = ErrExpected
 		return
 	}
 	var endpoint *net.IPAddr
-	endpoint, err = peer.Endpoint.Resolve(peer.AddressFamily)
+	endpoint, err = peer.AddressFamily.ResolveIP(peer.Endpoint)
 	if err != nil {
-		err = fmt.Errorf("GenerateWireguardConfig: failed to resolve endpoint endpoint address %s: %w", peer.Endpoint, err)
+		err = fmt.Errorf("GenerateWireguardConfig: failed to resolve endpoint address %s: %w", peer.Endpoint, err)
 		return
 	}
 	name = client.InterfacePrefix + strconv.Itoa(peer.SendPort)
@@ -38,7 +33,7 @@ func (client *Client) GenerateWireguardConfig(peer *Peer) (name string, config *
 	config = &wgtypes.Config{
 		PrivateKey:   &_pk,
 		ListenPort:   &peer.SendPort,
-		FirewallMark: client.FwMark,
+		FirewallMark: &client.FwMark,
 		ReplacePeers: true,
 		Peers: []wgtypes.PeerConfig{
 			{
@@ -51,7 +46,7 @@ func (client *Client) GenerateWireguardConfig(peer *Peer) (name string, config *
 					Port: client.SendPort,
 				},
 				ReplaceAllowedIPs: true,
-				AllowedIPs:        []net.IPNet{*consts.IP4NetAll, *consts.IP6NetAll},
+				AllowedIPs:        consts.IPNetAll,
 			},
 		},
 	}
@@ -78,8 +73,9 @@ func (client *Client) SetupWireguardInterface(peer *Peer) (link netlink.Link, er
 		err = utils.WithNetns(client.TransitNamespace, func(handle *netlink.Handle) (err error) {
 			link = &netlink.Wireguard{
 				LinkAttrs: netlink.LinkAttrs{
-					Name: name,
-					MTU:  client.MTU,
+					Name:  name,
+					MTU:   client.MTU,
+					Group: uint32(client.InterfaceGroup),
 				},
 			}
 			err = handle.LinkAdd(link)
@@ -145,29 +141,44 @@ func (client *Client) SetupWireguardInterface(peer *Peer) (link netlink.Link, er
 	return
 }
 
+func (client *Client) ListInterfaces() (linkList []netlink.Link, err error) {
+	err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
+		var unfilteredLinkList []netlink.Link
+		unfilteredLinkList, err = handle.LinkList()
+		if err != nil {
+			err = fmt.Errorf("ListInterfaces: failed to list links: %w", err)
+			return
+		}
+		for _, link := range unfilteredLinkList {
+			if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, client.InterfacePrefix) &&
+				link.Attrs().Group == uint32(client.InterfaceGroup) {
+				linkList = append(linkList, link)
+			}
+		}
+		return
+	})
+	return
+}
+
 // SyncWireguardInterfaces ensures the state of the interfaces matches the configuration files
 func (client *Client) SyncWireguardInterfaces(peers []*Peer) (err error) {
 	var targetLinkList []netlink.Link
 	for _, peer := range peers {
 		var link netlink.Link
-		var err error
 		link, err = client.SetupWireguardInterface(peer)
 		if err != nil {
-			if errors.Is(err, ErrPeerIsSelf) || errors.Is(err, ErrIncompatibleAF) {
+			if errors.Is(err, ErrExpected) {
 				continue
 			}
-			return err
+			return
 		}
 		targetLinkList = append(targetLinkList, link)
 	}
 
 	var currentLinkList []netlink.Link
-	err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
-		currentLinkList, err = handle.LinkList()
-		return
-	})
+	currentLinkList, err = client.ListInterfaces()
 	if err != nil {
-		return err
+		return
 	}
 
 	var diff []netlink.Link
@@ -175,12 +186,10 @@ func (client *Client) SyncWireguardInterfaces(peers []*Peer) (err error) {
 
 	err = utils.WithNetns(client.InterfaceNamespace, func(handle *netlink.Handle) (err error) {
 		for _, link := range diff {
-			if link.Type() == "wireguard" && strings.HasPrefix(link.Attrs().Name, client.InterfacePrefix) {
-				err = handle.LinkDel(link)
-				if err != nil {
-					err = fmt.Errorf("SyncWireguardInterfaces: failed to delete interface: %w", err)
-					return
-				}
+			err = handle.LinkDel(link)
+			if err != nil {
+				err = fmt.Errorf("SyncWireguardInterfaces: failed to delete interface: %w", err)
+				return
 			}
 		}
 		return
