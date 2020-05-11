@@ -36,7 +36,7 @@ func (client *Client) RenderTemplate(path string) ([]byte, error) {
 	}
 
 	var output []byte
-	output, err = liquid.NewEngine().ParseAndRender(source, map[string]interface{}{"LinkList": rawLinkList, "Client": client})
+	output, err = liquid.NewEngine().ParseAndRender(source, map[string]interface{}{"LinkList": linkList, "Client": client})
 	if err != nil {
 		return nil, fmt.Errorf("failed to render template: %w", err)
 	}
