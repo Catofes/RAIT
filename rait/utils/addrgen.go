@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// GenerateLinklocalAddress generates a RFC 4862 compliant linklocal address, with a random mac address
-func GenerateLinklocalAddress() *netlink.Addr {
+// LinkLocalAddr generates a RFC 4862 compliant linklocal address, with a random mac address
+func LinkLocalAddr() *netlink.Addr {
 	rand.Seed(time.Now().UnixNano())
 	digits := []int{0x00, 0x16, 0x3e, rand.Intn(0x7f + 1), rand.Intn(0xff + 1), rand.Intn(0xff + 1)}
 	digits = append(digits, 0, 0)

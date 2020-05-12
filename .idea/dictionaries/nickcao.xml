@@ -19,6 +19,7 @@
       <w>netns</w>
       <w>peerconfig</w>
       <w>pfile</w>
+      <w>priv</w>
       <w>privatekey</w>
       <w>publickey</w>
       <w>rait</w>
@@ -26,7 +27,9 @@
       <w>raitns</w>
       <w>rxcost</w>
       <w>stdin</w>
+      <w>subcommands</w>
       <w>tmpfile</w>
+      <w>tmpl</w>
       <w>toml</w>
       <w>tomls</w>
       <w>unmarshaler</w>

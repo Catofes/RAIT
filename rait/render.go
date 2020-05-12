@@ -3,31 +3,31 @@ package rait
 import (
 	"fmt"
 	"github.com/osteele/liquid"
-	"github.com/vishvananda/netlink"
-	"gitlab.com/NickCao/RAIT/rait/internal/utils"
-	"io"
+	"gitlab.com/NickCao/RAIT/rait/utils"
 	"io/ioutil"
 )
 
 // RenderTemplate gathers information about interfaces and renders the liquid template
-func (client *Client) RenderTemplate(path string) ([]byte, error) {
-	var reader io.ReadCloser
-	var err error
-	reader, err = utils.ReaderFromPath(path)
+func (instance *Instance) RenderTemplate(in string, out string) error {
+	reader, err := utils.ReadCloserFromPath(in)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer reader.Close()
-	var source []byte
-	source, err = ioutil.ReadAll(reader)
+	writer, err := utils.WriteCloserFromPath(out)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	defer writer.Close()
+
+	tmpl, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("RenderTemplate: failed to read template: %w", err)
 	}
 
-	var rawLinkList []netlink.Link
-	rawLinkList, err = client.ListInterfaces()
+	rawLinkList, err := instance.ListInterfaces()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var linkList []string
@@ -35,10 +35,15 @@ func (client *Client) RenderTemplate(path string) ([]byte, error) {
 		linkList = append(linkList, link.Attrs().Name)
 	}
 
-	var output []byte
-	output, err = liquid.NewEngine().ParseAndRender(source, map[string]interface{}{"LinkList": linkList, "Client": client})
+	output, err := liquid.NewEngine().ParseAndRender(tmpl, map[string]interface{}{"LinkList": linkList, "Instance": instance})
 	if err != nil {
-		return nil, fmt.Errorf("failed to render template: %w", err)
+		return fmt.Errorf("RenderTemplate: failed to render template: %w", err)
 	}
-	return output, err
+
+	_, err = writer.Write(output)
+	if err != nil {
+		return fmt.Errorf("RenderTemplate: failed to write output: %w", err)
+	}
+
+	return nil
 }
