@@ -89,7 +89,7 @@ func (instance *Instance) EnsureInterface(peer *Peer) (netlink.Link, error) {
 			return fmt.Errorf("EnsureInterface: failed to create interface in transit netns: %w", err)
 		}
 		var ns netns.NsHandle
-		ns, err = utils.EnsureNetNS(instance.TransitNamespace)
+		ns, err = utils.EnsureNetNS(instance.InterfaceNamespace)
 		if err != nil {
 			return err
 		}
