@@ -4,6 +4,7 @@ stages:
 
 variables:
   CGO_ENABLED: 0
+  GO111MODULE: on
 
 build:binary:
   image: golang:latest
