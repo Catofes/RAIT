@@ -9,6 +9,7 @@ import (
 	"gitlab.com/NickCao/RAIT/rait/utils"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -187,7 +188,8 @@ func (instance *Instance) SyncInterfaces(up bool) error {
 	for _, peer := range plist.Peers {
 		link, err := instance.EnsureInterface(peer)
 		if err != nil && !errors.Is(err, ErrExpected) {
-			return err
+			log.Println(err)
+			continue // Don't let a single peer fail the whole process
 		}
 		if link != nil {
 			targetLinkList = append(targetLinkList, link)
