@@ -11,7 +11,7 @@ require (
 	github.com/osteele/tuesday v1.0.3 // indirect
 	github.com/stretchr/testify v1.5.1 // indirect
 	github.com/urfave/cli/v2 v2.2.0
-	github.com/vishvananda/netlink v1.1.0
+	github.com/vishvananda/netlink v1.1.1-0.20200606011528-cf6600189038
 	github.com/vishvananda/netns v0.0.0-20200520041808-52d707b772fe
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9 // indirect
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
@@ -21,5 +21,3 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
-
-replace github.com/vishvananda/netlink => github.com/NickCao/netlink v1.1.1
