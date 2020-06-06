@@ -1,8 +1,7 @@
-package utils
+package misc
 
 import (
 	"fmt"
-	"github.com/BurntSushi/toml"
 	"io"
 	"net/http"
 	"net/url"
@@ -10,7 +9,7 @@ import (
 )
 
 // WriteCloserFromPath returns a WriteCloser from the given path
-// Path can be a file system path, or "-" for stdout
+// path can be a file system path, or "-" for stdout
 func WriteCloserFromPath(path string) (io.WriteCloser, error) {
 	u, err := url.Parse(path)
 	if err != nil {
@@ -32,7 +31,7 @@ func WriteCloserFromPath(path string) (io.WriteCloser, error) {
 }
 
 // ReadCloserFromPath returns a ReadCloser from the given path
-// Path can be a file system path, a http url, or "-" for stdin
+// path can be a file system path, a http url, or "-" for stdin
 func ReadCloserFromPath(path string) (io.ReadCloser, error) {
 	u, err := url.Parse(path)
 	if err != nil {
@@ -57,19 +56,4 @@ func ReadCloserFromPath(path string) (io.ReadCloser, error) {
 	default:
 		return nil, fmt.Errorf("ReadCloserFromPath: unsupported url scheme: %s", u.Scheme)
 	}
-}
-
-// DecodeTOMLFromPath decodes the toml file loaded from path
-// Then unmarshal it into the given interface
-func DecodeTOMLFromPath(path string, v interface{}) error {
-	source, err := ReadCloserFromPath(path)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-	_, err = toml.DecodeReader(source, v)
-	if err != nil {
-		return fmt.Errorf("DecodeTOMLFromPath: failed to decode toml: %w", err)
-	}
-	return nil
 }

@@ -1,4 +1,4 @@
-module gitlab.com/NickCao/RAIT
+module gitlab.com/NickCao/RAIT/v2
 
 go 1.14
 

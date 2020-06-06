@@ -3,18 +3,18 @@ package rait
 import (
 	"fmt"
 	"github.com/osteele/liquid"
-	"gitlab.com/NickCao/RAIT/pkg/utils"
+	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 	"io/ioutil"
 )
 
 // RenderTemplate gathers information about interfaces and renders the liquid template
 func (instance *Instance) RenderTemplate(in string, out string) error {
-	reader, err := utils.ReadCloserFromPath(in)
+	reader, err := misc.ReadCloserFromPath(in)
 	if err != nil {
 		return err
 	}
 	defer reader.Close()
-	writer, err := utils.WriteCloserFromPath(out)
+	writer, err := misc.WriteCloserFromPath(out)
 	if err != nil {
 		return err
 	}

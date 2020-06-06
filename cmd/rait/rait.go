@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/NickCao/RAIT/pkg/rait"
+	"gitlab.com/NickCao/RAIT/v2/pkg/rait"
 	"log"
 	"os"
 )
@@ -70,7 +70,6 @@ func main() {
 		}},
 		HideHelpCommand: true,
 	}
-
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)

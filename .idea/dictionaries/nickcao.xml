@@ -16,6 +16,7 @@
       <w>libpod</w>
       <w>linklocal</w>
       <w>maddrs</w>
+      <w>miscs</w>
       <w>netlink</w>
       <w>netns</w>
       <w>peerconfig</w>

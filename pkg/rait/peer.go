@@ -1,8 +1,8 @@
 package rait
 
 import (
-	"gitlab.com/NickCao/RAIT/pkg/types"
-	"gitlab.com/NickCao/RAIT/pkg/utils"
+	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
+	"gitlab.com/NickCao/RAIT/v2/pkg/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
 )
@@ -23,7 +23,7 @@ func PeerFromMap(data map[string]string) (*Peer, error) {
 	if err != nil {
 		return nil, NewErrDecode("Peer", "PublicKey", err)
 	}
-	peer.AddressFamily, err = types.ParseAddressFamily(types.OrDefault(data["AddressFamily"], "ip4"))
+	peer.AddressFamily, err = types.ParseAddressFamily(misc.OrDefault(data["AddressFamily"], "ip4"))
 	if err != nil {
 		return nil, NewErrDecode("Peer", "AddressFamily", err)
 	}
@@ -42,7 +42,7 @@ func PeersFromPath(path string) ([]*Peer, error) {
 	var peersMap struct {
 		Peers []map[string]string
 	}
-	err := utils.DecodeTOMLFromPath(path, &peersMap)
+	err := misc.DecodeTOMLFromPath(path, &peersMap)
 	if err != nil {
 		return nil, err
 	}

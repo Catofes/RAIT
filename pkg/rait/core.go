@@ -3,8 +3,9 @@ package rait
 import (
 	"fmt"
 	"github.com/vishvananda/netlink"
-	"gitlab.com/NickCao/RAIT/pkg/types"
-	"gitlab.com/NickCao/RAIT/pkg/utils"
+	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
+	"gitlab.com/NickCao/RAIT/v2/pkg/namespace"
+	"gitlab.com/NickCao/RAIT/v2/pkg/types"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
@@ -58,7 +59,7 @@ func (instance *Instance) EnsureInterface(peer *Peer) (netlink.Link, error) {
 		return nil, err
 	}
 	var link netlink.Link
-	err = utils.WithNetNS(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
+	err = namespace.WithNetlink(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
 		link, err = handle.LinkByName(name)
 		return err
 	})
@@ -72,7 +73,7 @@ func (instance *Instance) EnsureInterface(peer *Peer) (netlink.Link, error) {
 		return nil, fmt.Errorf("EnsureInterface: unexpected error when trying to get link: %w", err)
 	}
 
-	err = utils.WithNetNS(instance.TransitNamespace, func(handle *netlink.Handle) error {
+	err = namespace.WithNetlink(instance.TransitNamespace, func(handle *netlink.Handle) error {
 		link = &netlink.Wireguard{
 			LinkAttrs: netlink.LinkAttrs{
 				Name:  name,
@@ -96,13 +97,13 @@ func (instance *Instance) EnsureInterface(peer *Peer) (netlink.Link, error) {
 		return nil, err
 	}
 
-	err = utils.WithNetNS(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
+	err = namespace.WithNetlink(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
 		err = handle.LinkSetUp(link)
 		if err != nil {
 			_ = handle.LinkDel(link)
 			return fmt.Errorf("EnsureInterface: failed to bring interface up: %w", err)
 		}
-		err = handle.AddrAdd(link, utils.LinkLocalAddr())
+		err = handle.AddrAdd(link, misc.LinkLocalAddr())
 		if err != nil {
 			_ = handle.LinkDel(link)
 			return fmt.Errorf("EnsureInterface: failed to add link local address to interface: %w", err)
@@ -114,7 +115,7 @@ func (instance *Instance) EnsureInterface(peer *Peer) (netlink.Link, error) {
 	}
 
 configure:
-	err = utils.WithNetNS(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
+	err = namespace.WithNetlink(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
 		var wg *wgctrl.Client
 		wg, err = wgctrl.New()
 		if err != nil {
@@ -136,7 +137,7 @@ configure:
 func (instance *Instance) ListInterfaces() ([]netlink.Link, error) {
 	var err error
 	var linkList []netlink.Link
-	err = utils.WithNetNS(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
+	err = namespace.WithNetlink(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
 		var unfilteredLinkList []netlink.Link
 		unfilteredLinkList, err = handle.LinkList()
 		if err != nil {
@@ -187,7 +188,7 @@ func (instance *Instance) SyncInterfaces(up bool) error {
 		return err
 	}
 
-	err = utils.WithNetNS(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
+	err = namespace.WithNetlink(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
 		for _, link := range currentLinkList {
 			var unneeded = true
 			for _, otherLink := range targetLinkList {
