@@ -9,7 +9,7 @@ RAIT, despite its name, is tightly tied with wireguard as the underlying transpo
 
 #### Configuration Files
 
-For a reference of the configuration format, see [instance.go](rait/instance.go) and [peer.go](rait/peer.go)
+For a reference of the configuration format, see [instance.go](pkg/rait/instance.go) and [peer.go](pkg/rait/peer.go)
 
 #### Render
 

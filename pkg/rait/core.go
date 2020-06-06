@@ -1,52 +1,48 @@
 package rait
 
 import (
-	"errors"
 	"fmt"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
-	"gitlab.com/NickCao/RAIT/rait/types"
-	"gitlab.com/NickCao/RAIT/rait/utils"
+	"gitlab.com/NickCao/RAIT/pkg/types"
+	"gitlab.com/NickCao/RAIT/pkg/utils"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"log"
 	"net"
 	"strconv"
 	"strings"
 )
 
-var ErrExpected = errors.New("expected error")
+func (instance *Instance) LoadPeers() ([]*Peer, error) {
+	peers, err := PeersFromPath(instance.Peers)
+	if err != nil {
+		return nil, err
+	}
+	n := 0
+	for _, x := range peers {
+		if x.AddressFamily == instance.AddressFamily &&
+			x.PublicKey.String() != instance.PrivateKey.PublicKey().String() {
+			peers[n] = x
+			n++
+		}
+	}
+	peers = peers[:n]
+	return peers, nil
+}
 
-// WireguardConfig generates wireguard interface configuration for specified peer
 func (instance *Instance) WireguardConfig(peer *Peer) (string, *wgtypes.Config, error) {
-	if instance.SendPort == peer.SendPort || instance.AddressFamily != peer.AddressFamily {
-		return "", nil, ErrExpected
-	}
-	endpoint, err := net.ResolveIPAddr(peer.AddressFamily, peer.Endpoint)
-	if err != nil {
-		return "", nil, fmt.Errorf("WireguardConfig: failed to resolve endpoint address %s: %w", peer.Endpoint, err)
-	}
-	privKey, err := wgtypes.ParseKey(instance.PrivateKey)
-	if err != nil {
-		return "", nil, fmt.Errorf("WireguardConfig: failed to parse private key: %w", err)
-	}
-	pubKey, err := wgtypes.ParseKey(peer.PublicKey)
-	if err != nil {
-		return "", nil, fmt.Errorf("WireguardConfig: failed to parse public key of peer: %w", err)
-	}
 	return instance.InterfacePrefix + strconv.Itoa(peer.SendPort), &wgtypes.Config{
-		PrivateKey:   &privKey,
+		PrivateKey:   &instance.PrivateKey,
 		ListenPort:   &peer.SendPort,
 		FirewallMark: &instance.FwMark,
 		ReplacePeers: true,
 		Peers: []wgtypes.PeerConfig{
 			{
-				PublicKey:    pubKey,
+				PublicKey:    peer.PublicKey,
 				Remove:       false,
 				UpdateOnly:   false,
 				PresharedKey: nil,
 				Endpoint: &net.UDPAddr{
-					IP:   endpoint.IP,
+					IP:   peer.Endpoint,
 					Port: instance.SendPort,
 				},
 				ReplaceAllowedIPs: true,
@@ -56,7 +52,6 @@ func (instance *Instance) WireguardConfig(peer *Peer) (string, *wgtypes.Config, 
 	}, nil
 }
 
-// EnsureInterface setups wireguard interface for specified peer
 func (instance *Instance) EnsureInterface(peer *Peer) (netlink.Link, error) {
 	name, config, err := instance.WireguardConfig(peer)
 	if err != nil {
@@ -89,13 +84,8 @@ func (instance *Instance) EnsureInterface(peer *Peer) (netlink.Link, error) {
 		if err != nil {
 			return fmt.Errorf("EnsureInterface: failed to create interface in transit netns: %w", err)
 		}
-		var ns netns.NsHandle
-		ns, err = utils.EnsureNetNS(instance.InterfaceNamespace)
-		if err != nil {
-			return err
-		}
-		defer ns.Close()
-		err = handle.LinkSetNsFd(link, int(ns))
+
+		err = handle.LinkSetNsFd(link, int(instance.InterfaceNamespace))
 		if err != nil {
 			_ = handle.LinkDel(link)
 			return fmt.Errorf("EnsureInterface: failed to move interface into netns: %w", err)
@@ -143,7 +133,6 @@ configure:
 	return link, nil
 }
 
-// ListInterfaces lists the interfaces managed by rait
 func (instance *Instance) ListInterfaces() ([]netlink.Link, error) {
 	var err error
 	var linkList []netlink.Link
@@ -166,30 +155,27 @@ func (instance *Instance) ListInterfaces() ([]netlink.Link, error) {
 	return linkList, nil
 }
 
-// IsManagedInterface indicates whether the specified link is managed by the current rait instance
 func (instance *Instance) IsManagedInterface(link netlink.Link) bool {
 	return link.Type() == "wireguard" &&
 		link.Attrs().Group == uint32(instance.InterfaceGroup) &&
 		strings.HasPrefix(link.Attrs().Name, instance.InterfacePrefix)
 }
 
-// SyncInterfaces ensures the state of the interfaces matches the configuration files
 func (instance *Instance) SyncInterfaces(up bool) error {
+	var peers []*Peer
 	var err error
-	var plist PeerList
 	if up {
-		plist, err = LoadPeersFromPath(instance.Peers)
+		peers, err = instance.LoadPeers()
 		if err != nil {
 			return err
 		}
 	}
 
 	var targetLinkList []netlink.Link
-	for _, peer := range plist.Peers {
+	for _, peer := range peers {
 		link, err := instance.EnsureInterface(peer)
-		if err != nil && !errors.Is(err, ErrExpected) {
-			log.Println(err)
-			continue // Don't let a single peer fail the whole process
+		if err != nil {
+			return err
 		}
 		if link != nil {
 			targetLinkList = append(targetLinkList, link)
@@ -203,7 +189,6 @@ func (instance *Instance) SyncInterfaces(up bool) error {
 
 	err = utils.WithNetNS(instance.InterfaceNamespace, func(handle *netlink.Handle) error {
 		for _, link := range currentLinkList {
-
 			var unneeded = true
 			for _, otherLink := range targetLinkList {
 				if link.Attrs().Name == otherLink.Attrs().Name {

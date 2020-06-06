@@ -3,7 +3,7 @@ package rait
 import (
 	"fmt"
 	"github.com/osteele/liquid"
-	"gitlab.com/NickCao/RAIT/rait/utils"
+	"gitlab.com/NickCao/RAIT/pkg/utils"
 	"io/ioutil"
 )
 

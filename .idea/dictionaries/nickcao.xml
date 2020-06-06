@@ -2,6 +2,7 @@
   <dictionary name="nickcao">
     <words>
       <w>babeld</w>
+      <w>dest</w>
       <w>dirpath</w>
       <w>dstns</w>
       <w>fakeip</w>
@@ -26,6 +27,7 @@
       <w>raitif</w>
       <w>raitns</w>
       <w>rxcost</w>
+      <w>sendport</w>
       <w>stdin</w>
       <w>subcommands</w>
       <w>tmpfile</w>
