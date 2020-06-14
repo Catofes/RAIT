@@ -5,6 +5,7 @@ import (
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 	"gitlab.com/NickCao/RAIT/v2/pkg/namespace"
 	"gitlab.com/NickCao/RAIT/v2/pkg/types"
+	"go.uber.org/zap"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -22,48 +23,37 @@ type Instance struct {
 	Peers              string         // optional, default /etc/rait/peers.conf, the url of the peer list
 }
 
-func InstanceFromMap(data map[string]string) (*Instance, error) {
+func InstanceFromMap(data map[string]interface{}) (*Instance, error) {
+	logger := zap.S().Named("rait.InstanceFromMap")
 	var instance Instance
 	var err error
-	instance.PrivateKey, err = wgtypes.ParseKey(data["PrivateKey"])
+	instance.PrivateKey, err = wgtypes.ParseKey(misc.Fallback(data["PrivateKey"], "").(string))
 	if err != nil {
-		return nil, NewErrDecode("Instance", "PrivateKey", err)
+		logger.Errorf("failed to parse wireguard private key, error %s", err)
+		return nil, err
 	}
-	instance.AddressFamily, err = types.ParseAddressFamily(misc.OrDefault(data["AddressFamily"], "ip4"))
+	instance.AddressFamily = types.ParseAddressFamily(data["AddressFamily"])
+	instance.SendPort = types.ParseInt64(data["SendPort"], 0)
+	instance.InterfacePrefix = misc.Fallback(data["InterfacePrefix"], "rait").(string)
+	instance.InterfaceGroup = types.ParseInt64(data["InterfaceGroup"], 54)
+	instance.InterfaceNamespace, err = namespace.GetFromName(misc.Fallback(data["InterfaceNamespace"], "").(string))
 	if err != nil {
-		return nil, NewErrDecode("Instance", "AddressFamily", err)
+		logger.Errorf("failed to parse interface namespace, error %s", err)
+		return nil, err
 	}
-	instance.SendPort, err = types.ParseUint16(data["SendPort"])
+	instance.TransitNamespace, err = namespace.GetFromName(misc.Fallback(data["TransitNamespace"], "").(string))
 	if err != nil {
-		return nil, NewErrDecode("Instance", "SendPort", err)
+		logger.Errorf("failed to parse transit namespace, error %s", err)
+		return nil, err
 	}
-	instance.InterfacePrefix = misc.OrDefault(data["InterfacePrefix"], "rait")
-	instance.InterfaceGroup, err = types.ParseUint16(misc.OrDefault(data["InterfaceGroup"], "54"))
-	if err != nil {
-		return nil, NewErrDecode("Instance", "InterfaceGroup", err)
-	}
-	instance.InterfaceNamespace, err = namespace.GetFromName(data["InterfaceNamespace"])
-	if err != nil {
-		return nil, NewErrDecode("Instance", "InterfaceNamespace", err)
-	}
-	instance.TransitNamespace, err = namespace.GetFromName(data["TransitNamespace"])
-	if err != nil {
-		return nil, NewErrDecode("Instance", "TransitNamespace", err)
-	}
-	instance.MTU, err = types.ParseUint16(misc.OrDefault(data["MTU"], "1400"))
-	if err != nil {
-		return nil, NewErrDecode("Instance", "MTU", err)
-	}
-	instance.FwMark, err = types.ParseUint16(misc.OrDefault(data["FwMark"], "54"))
-	if err != nil {
-		return nil, NewErrDecode("Instance", "FwMark", err)
-	}
-	instance.Peers = misc.OrDefault(data["Peers"], "/etc/rait/peers.conf")
+	instance.MTU = types.ParseInt64(data["MTU"], 1400)
+	instance.FwMark = types.ParseInt64(data["FwMark"], 0)
+	instance.Peers = misc.Fallback(data["Peers"], "/etc/rait/peers.conf").(string)
 	return &instance, nil
 }
 
 func InstanceFromPath(path string) (*Instance, error) {
-	var instanceMap map[string]string
+	var instanceMap map[string]interface{}
 	err := misc.DecodeTOMLFromPath(path, &instanceMap)
 	if err != nil {
 		return nil, err

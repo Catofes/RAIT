@@ -19,6 +19,7 @@
       <w>miscs</w>
       <w>netlink</w>
       <w>netns</w>
+      <w>nsfs</w>
       <w>peerconfig</w>
       <w>pfile</w>
       <w>priv</w>
@@ -36,6 +37,7 @@
       <w>toml</w>
       <w>tomls</w>
       <w>unmarshaler</w>
+      <w>unshare</w>
       <w>unspec</w>
       <w>veth</w>
       <w>vethname</w>
