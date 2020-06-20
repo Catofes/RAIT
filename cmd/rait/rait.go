@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/NickCao/RAIT/v2/pkg/rait"
+	"go.uber.org/zap"
 	"log"
 	"os"
 )
 
 var Version string
+var instance *rait.Instance
 
 func main() {
-	globalFlags := []cli.Flag{
+	commonFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "config",
 			Usage:   "path to configuration file",
@@ -19,6 +21,28 @@ func main() {
 			EnvVars: []string{"RAIT_CONFIG"},
 			Value:   "/etc/rait/rait.conf",
 		},
+		&cli.BoolFlag{
+			Name:    "debug",
+			Usage:   "enable debug log",
+			Aliases: []string{"d"},
+			EnvVars: []string{"RAIT_DEBUG"},
+			Value:   false,
+		},
+	}
+	beforeFunc := func(context *cli.Context) error {
+		if context.Bool("debug") {
+			logger, err := zap.NewDevelopment()
+			if err != nil {
+				return err
+			}
+			zap.ReplaceGlobals(logger)
+		}
+		var err error
+		instance, err = rait.InstanceFromPath(context.String("config"))
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	app := &cli.App{
 		Name:      "rait",
@@ -30,12 +54,9 @@ func main() {
 			Aliases:   []string{"sync", "u"},
 			Usage:     "create or sync the tunnels",
 			UsageText: "rait up [options]",
-			Flags:     globalFlags,
+			Flags:     commonFlags,
+			Before:    beforeFunc,
 			Action: func(context *cli.Context) error {
-				instance, err := rait.InstanceFromPath(context.String("config"))
-				if err != nil {
-					return err
-				}
 				return instance.SyncInterfaces(true)
 			},
 		}, {
@@ -43,12 +64,9 @@ func main() {
 			Aliases:   []string{"d"},
 			Usage:     "destroy the tunnels",
 			UsageText: "rait down [options]",
-			Flags:     globalFlags,
+			Flags:     commonFlags,
+			Before:    beforeFunc,
 			Action: func(context *cli.Context) error {
-				instance, err := rait.InstanceFromPath(context.String("config"))
-				if err != nil {
-					return err
-				}
 				return instance.SyncInterfaces(false)
 			},
 		}, {
@@ -56,14 +74,11 @@ func main() {
 			Aliases:   []string{"r"},
 			Usage:     "render template based on the desired state of the tunnels",
 			UsageText: "rait render [options] SRC DEST",
-			Flags:     globalFlags,
+			Flags:     commonFlags,
+			Before:    beforeFunc,
 			Action: func(context *cli.Context) error {
 				if context.Args().Len() != 2 {
 					return fmt.Errorf("expecting two arguments")
-				}
-				instance, err := rait.InstanceFromPath(context.String("config"))
-				if err != nil {
-					return err
 				}
 				return instance.RenderTemplate(context.Args().Get(0), context.Args().Get(1))
 			},

@@ -1,8 +1,9 @@
-package namespace
+package isolation
 
 import (
 	"errors"
 	"fmt"
+	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -12,18 +13,20 @@ import (
 	"sync"
 )
 
-// GetFromName creates named network namespace,
-// and returns current namespace if no name is specified
-func GetFromName(name string) (netns.NsHandle, error) {
-	logger := zap.S().Named("namespace.GetFromName")
+// NetnsFromName creates and returns named network namespace,
+// or the current namespace if no name is specified
+func NetnsFromName(name string) (netns.NsHandle, error) {
+	logger := zap.S().Named("isolation.NetnsFromName")
 	// shortcut for current namespace
 	if name == "" {
+		logger.Debugf("no name specified, getting the current netns")
 		return netns.Get()
 	}
 
 	// shortcut for existing namespace
 	ns, err := netns.GetFromName(name)
 	if err == nil {
+		logger.Debugf("the specified netns exists, returning: %s", name)
 		return ns, nil
 	}
 
@@ -41,6 +44,7 @@ func GetFromName(name string) (netns.NsHandle, error) {
 			logger.Errorf("unexpected error when stating runtime dir: %s, error %s", runtimeDir, err)
 			return 0, err
 		}
+		logger.Debugf("creating netns runtime dir: %s", runtimeDir)
 		err = os.MkdirAll(runtimeDir, 0755)
 		if err != nil {
 			logger.Errorf("failed to create runtime dir: %s, error %s", runtimeDir, err)
@@ -93,5 +97,18 @@ func GetFromName(name string) (netns.NsHandle, error) {
 		return 0, err
 	}
 
+	logger.Debugf("created named namespace: %s", name)
 	return netns.GetFromName(name)
+}
+
+// NetlinkFromName returns netlink handle created in the specified netns
+func NetlinkFromName(name string) (*netlink.Handle, error) {
+	logger := zap.S().Named("isolation.NetlinkFromName")
+	ns, err := NetnsFromName(name)
+	if err != nil {
+		return nil, err
+	}
+	defer ns.Close()
+	logger.Debugf("creating netlink handle in netns: %s", name)
+	return netlink.NewHandleAt(ns)
 }

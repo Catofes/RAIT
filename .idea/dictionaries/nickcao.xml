@@ -1,6 +1,7 @@
 <component name="ProjectDictionaryState">
   <dictionary name="nickcao">
     <words>
+      <w>addrs</w>
       <w>babeld</w>
       <w>dest</w>
       <w>dirpath</w>
@@ -20,6 +21,7 @@
       <w>netlink</w>
       <w>netns</w>
       <w>nsfs</w>
+      <w>oneof</w>
       <w>peerconfig</w>
       <w>pfile</w>
       <w>priv</w>

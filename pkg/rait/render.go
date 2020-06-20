@@ -3,6 +3,7 @@ package rait
 import (
 	"fmt"
 	"github.com/osteele/liquid"
+	"gitlab.com/NickCao/RAIT/v2/pkg/isolation"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 	"io/ioutil"
 )
@@ -25,14 +26,15 @@ func (instance *Instance) RenderTemplate(in string, out string) error {
 		return fmt.Errorf("RenderTemplate: failed to read template: %w", err)
 	}
 
-	rawLinkList, err := instance.ListInterfaces()
+
+	gi, err := isolation.NewGenericIsolation(instance.Isolation, instance.TransitNamespace, instance.InterfaceNamespace)
 	if err != nil {
 		return err
 	}
 
-	var linkList []string
-	for _, link := range rawLinkList {
-		linkList = append(linkList, link.Attrs().Name)
+	linkList, err := gi.LinkList(instance.InterfacePrefix,instance.InterfaceGroup)
+	if err != nil {
+		return err
 	}
 
 	output, err := liquid.NewEngine().ParseAndRender(tmpl, map[string]interface{}{"LinkList": linkList, "Instance": instance})

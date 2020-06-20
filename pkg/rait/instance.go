@@ -1,62 +1,46 @@
 package rait
 
 import (
-	"github.com/vishvananda/netns"
+	"github.com/go-playground/validator/v10"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
-	"gitlab.com/NickCao/RAIT/v2/pkg/namespace"
-	"gitlab.com/NickCao/RAIT/v2/pkg/types"
-	"go.uber.org/zap"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// Instance represents the control structure of RAIT
+// Instance is at the heart of rait
+// it serves as the single source of truth for subsequent configuration of wireguard tunnels
 type Instance struct {
-	PrivateKey         wgtypes.Key    // mandatory, the private key of the client
-	AddressFamily      string         // optional, default ip4, the address family of the client, ip4 or ip6
-	SendPort           int            // mandatory, the sending port of the client
-	InterfacePrefix    string         // optional, default rait, the common prefix to name the wireguard interfaces
-	InterfaceGroup     int            // optional, default 54, the ifgroup for the wireguard interfaces
-	InterfaceNamespace netns.NsHandle // optional, default current, the netns to move wireguard interface into
-	TransitNamespace   netns.NsHandle // optional, default current, the netns to create wireguard sockets in
-	MTU                int            // optional, default 1400, the MTU of the wireguard interfaces
-	FwMark             int            // optional, default 54, the fwmark on packets sent by wireguard
-	Peers              string         // optional, default /etc/rait/peers.conf, the url of the peer list
-}
+	PrivateKey    string `validate:"required,base64"`          // required, the private key of current node
+	AddressFamily string `validate:"required,oneof=ip4 ip6"`   // required, [ip4]/ip6, the address family of current node
+	SendPort      int    `validate:"required,min=1,max=65535"` // required, the sending (destination) port of wireguard sockets
+	BindAddress   string `validate:"omitempty,ip"`             // the local address for wireguard sockets to bind to
 
-func InstanceFromMap(data map[string]interface{}) (*Instance, error) {
-	logger := zap.S().Named("rait.InstanceFromMap")
-	var instance Instance
-	var err error
-	instance.PrivateKey, err = wgtypes.ParseKey(misc.Fallback(data["PrivateKey"], "").(string))
-	if err != nil {
-		logger.Errorf("failed to parse wireguard private key, error %s", err)
-		return nil, err
-	}
-	instance.AddressFamily = types.ParseAddressFamily(data["AddressFamily"])
-	instance.SendPort = types.ParseInt64(data["SendPort"], 0)
-	instance.InterfacePrefix = misc.Fallback(data["InterfacePrefix"], "rait").(string)
-	instance.InterfaceGroup = types.ParseInt64(data["InterfaceGroup"], 54)
-	instance.InterfaceNamespace, err = namespace.GetFromName(misc.Fallback(data["InterfaceNamespace"], "").(string))
-	if err != nil {
-		logger.Errorf("failed to parse interface namespace, error %s", err)
-		return nil, err
-	}
-	instance.TransitNamespace, err = namespace.GetFromName(misc.Fallback(data["TransitNamespace"], "").(string))
-	if err != nil {
-		logger.Errorf("failed to parse transit namespace, error %s", err)
-		return nil, err
-	}
-	instance.MTU = types.ParseInt64(data["MTU"], 1400)
-	instance.FwMark = types.ParseInt64(data["FwMark"], 0)
-	instance.Peers = misc.Fallback(data["Peers"], "/etc/rait/peers.conf").(string)
-	return &instance, nil
+	InterfacePrefix string `validate:"required"`                    // [rait], the common prefix to name the wireguard interfaces
+	InterfaceGroup  int    `validate:"min=0,max=2147483647"`        // [54], the ifgroup for the wireguard interfaces
+	MTU             int    `validate:"required,min=1280,max=65535"` // [1400], the MTU of the wireguard interfaces
+	FwMark          int    `validate:"min=0,max=4294967295"`        // [0x36], the fwmark on packets sent by wireguard sockets
+
+	Isolation          string `validate:"required,oneof=netns vrf"` // [netns]/vrf, the isolation method to separate overlay from underlay
+	InterfaceNamespace string // the netns or vrf to move wireguard interface into
+	TransitNamespace   string // the netns or vrf to create wireguard sockets in
+	// The creation of netns is handled automatically, while the creation of vrf must be done manually
+
+	Peers string // [/etc/rait/peers.conf], the url of the peer list
 }
 
 func InstanceFromPath(path string) (*Instance, error) {
-	var instanceMap map[string]interface{}
-	err := misc.DecodeTOMLFromPath(path, &instanceMap)
-	if err != nil {
+	var instance = Instance{
+		AddressFamily:   "ip4",
+		InterfacePrefix: "rait",
+		InterfaceGroup:  54,
+		MTU:             1400,
+		FwMark:          0x36,
+		Isolation:       "netns",
+		Peers:           "/etc/rait/peers.conf",
+	}
+	if err := misc.DecodeTOMLFromPath(path, &instance); err != nil {
 		return nil, err
 	}
-	return InstanceFromMap(instanceMap)
+	if err := validator.New().Struct(&instance); err != nil {
+		return nil, err
+	}
+	return &instance, nil
 }
