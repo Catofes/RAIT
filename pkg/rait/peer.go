@@ -3,6 +3,7 @@ package rait
 import (
 	"github.com/go-playground/validator/v10"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
+	"go.uber.org/zap"
 )
 
 // Peer represents a single rait node
@@ -15,6 +16,8 @@ type Peer struct {
 }
 
 func PeersFromPath(path string) ([]*Peer, error) {
+	logger := zap.S().Named("rait.PeersFromPath")
+
 	var peers struct {
 		Peers []*Peer
 	}
@@ -31,6 +34,8 @@ func PeersFromPath(path string) ([]*Peer, error) {
 		if validate.Struct(x) == nil {
 			peers.Peers[n] = x
 			n++
+		} else {
+			logger.Debugf("peer with public key %s is invalid, discarding", x.PublicKey)
 		}
 	}
 	peers.Peers = peers.Peers[:n]
