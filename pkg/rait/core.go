@@ -94,7 +94,7 @@ func (instance *Instance) SyncInterfaces(up bool) error {
 		if err != nil {
 			return err
 		}
-		err = gi.LinkEnsure(name, instance.MTU, instance.InterfaceGroup, *config)
+		err = gi.LinkEnsure(name, *config, instance.MTU, instance.InterfaceGroup)
 		if err != nil {
 			return err
 		}

@@ -32,12 +32,12 @@ func (instance *Instance) RenderTemplate(in string, out string) error {
 		return err
 	}
 
-	linkList, err := gi.LinkList(instance.InterfacePrefix,instance.InterfaceGroup)
+	linkList, err := gi.LinkFilter(instance.InterfacePrefix,instance.InterfaceGroup)
 	if err != nil {
 		return err
 	}
 
-	output, err := liquid.NewEngine().ParseAndRender(tmpl, map[string]interface{}{"LinkList": linkList, "Instance": instance})
+	output, err := liquid.NewEngine().ParseAndRender(tmpl, map[string]interface{}{"LinkFilter": linkList, "Instance": instance})
 	if err != nil {
 		return fmt.Errorf("RenderTemplate: failed to render template: %w", err)
 	}

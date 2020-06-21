@@ -1,6 +1,7 @@
 package isolation
 
 import (
+	"fmt"
 	"github.com/vishvananda/netlink"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 	"go.uber.org/zap"
@@ -10,11 +11,38 @@ import (
 	"strings"
 )
 
+// VrfIndexFromName returns the index of the specified vrf interface
+func VrfIndexFromName(name string) (int, error) {
+	logger := zap.S().Named("isolation.VrfIndexFromName")
+	if name == "" {
+		return 0, nil
+	}
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		logger.Errorf("failed to get link with name: %s", err)
+		return 0, err
+	}
+	vrf, ok := link.(*netlink.Vrf)
+	if !ok {
+		logger.Errorf("the link named %s is not a vrf", name)
+		return 0, fmt.Errorf("the link named %s is not a vrf", name)
+	}
+	return vrf.Index, nil
+}
+
+// VrfIsolation is an emerging technology as it provides less isolation than netns
+// and eases the pain of cross namespace routing by eliminating the need of veth pairs
 type VrfIsolation struct {
 	TransitVrf   string
 	InterfaceVrf string
 }
 
+// NewVrfIsolation takes two arguments: transit and interface vrf
+// the links and sockets will be created in the transit vrf
+// and the links will be moved into the interface vrf
+// however, due to the technical limitation of wireguard
+// the transit vrf param may not function as intended
+// the vrf interfaces should be created in advance
 func NewVrfIsolation(transitVrf, interfaceVrf string) *VrfIsolation {
 	return &VrfIsolation{
 		TransitVrf:   transitVrf,
@@ -22,8 +50,8 @@ func NewVrfIsolation(transitVrf, interfaceVrf string) *VrfIsolation {
 	}
 }
 
-func (i *VrfIsolation) LinkEnsure(name string, mtu, group int, config wgtypes.Config) (err error) {
-	logger := zap.S().Named("VrfIsolation.LinkEnsure")
+func (i *VrfIsolation) LinkEnsure(name string, config wgtypes.Config, mtu, ifgroup int) (err error) {
+	logger := zap.S().Named("isolation.VrfIsolation.LinkEnsure")
 
 	var interfaceHandle *netlink.Handle
 	if interfaceHandle, err = netlink.NewHandle(); err != nil {
@@ -50,6 +78,7 @@ func (i *VrfIsolation) LinkEnsure(name string, mtu, group int, config wgtypes.Co
 			logger.Errorf("failed to create link %s: %s", name, err)
 			return err
 		}
+		logger.Debugf("link %s created in transit vrf", name)
 	}
 
 	var interfaceVrfIndex int
@@ -63,6 +92,7 @@ func (i *VrfIsolation) LinkEnsure(name string, mtu, group int, config wgtypes.Co
 		_ = interfaceHandle.LinkDel(link)
 		return err
 	}
+	logger.Debugf("link %s moved into interface vrf", name)
 
 	err = interfaceHandle.LinkSetMTU(link, mtu)
 	if err != nil {
@@ -70,13 +100,15 @@ func (i *VrfIsolation) LinkEnsure(name string, mtu, group int, config wgtypes.Co
 		_ = interfaceHandle.LinkDel(link)
 		return err
 	}
+	logger.Debugf("link %s mtu set to %d", name, mtu)
 
-	err = interfaceHandle.LinkSetGroup(link, group)
+	err = interfaceHandle.LinkSetGroup(link, ifgroup)
 	if err != nil {
 		logger.Errorf("failed to set group on link %s: %s", name, err)
 		_ = interfaceHandle.LinkDel(link)
 		return err
 	}
+	logger.Debugf("link %s ifgroup set to %d", name, ifgroup)
 
 	err = interfaceHandle.LinkSetUp(link)
 	if err != nil {
@@ -84,6 +116,7 @@ func (i *VrfIsolation) LinkEnsure(name string, mtu, group int, config wgtypes.Co
 		_ = interfaceHandle.LinkDel(link)
 		return err
 	}
+	logger.Debugf("link %s set up", name)
 
 	var addrs []netlink.Addr
 	addrs, err = interfaceHandle.AddrList(link, unix.AF_INET6)
@@ -100,12 +133,16 @@ func (i *VrfIsolation) LinkEnsure(name string, mtu, group int, config wgtypes.Co
 			_ = interfaceHandle.LinkDel(link)
 			return err
 		}
+		logger.Debugf("link %s linklocal address configured", name)
+	} else {
+		logger.Debugf("link %s already has address configured, skipping configuration", name)
 	}
 
 	var wg *wgctrl.Client
 	wg, err = wgctrl.New()
 	if err != nil {
 		logger.Errorf("failed to get wireguard control socket: %s", err)
+		_ = interfaceHandle.LinkDel(link)
 		return err
 	}
 	defer wg.Close()
@@ -113,14 +150,17 @@ func (i *VrfIsolation) LinkEnsure(name string, mtu, group int, config wgtypes.Co
 	err = wg.ConfigureDevice(name, config)
 	if err != nil {
 		logger.Errorf("failed to configure wireguard interface %s: %s", name, err)
+		_ = interfaceHandle.LinkDel(link)
 		return err
 	}
+	logger.Debugf("link %s wireguard configuration set", name)
 
+	logger.Debugf("link %s ready", name)
 	return nil
 }
 
 func (i *VrfIsolation) LinkAbsent(name string) error {
-	logger := zap.S().Named("VrfIsolation.LinkAbsent")
+	logger := zap.S().Named("isolation.VrfIsolation.LinkAbsent")
 
 	var err error
 	var interfaceHandle *netlink.Handle
@@ -141,12 +181,13 @@ func (i *VrfIsolation) LinkAbsent(name string) error {
 		logger.Errorf("failed to delete link %s: %s", name, err)
 		return err
 	}
+	logger.Debugf("link %s removed", name)
 
 	return nil
 }
 
-func (i *VrfIsolation) LinkList(prefix string, group int) ([]string, error) {
-	logger := zap.S().Named("VrfIsolation.LinkList")
+func (i *VrfIsolation) LinkFilter(prefix string, group int) ([]string, error) {
+	logger := zap.S().Named("isolation.VrfIsolation.LinkFilter")
 
 	var err error
 	var interfaceHandle *netlink.Handle

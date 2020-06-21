@@ -1,2 +1,2 @@
-// Package isolation provides helper functions for manipulating netns and vrf
+// Package isolation provides primitives for isolating overlay from underlay
 package isolation
