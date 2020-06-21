@@ -40,7 +40,7 @@ func (instance *Instance) RenderTemplate(in string, out string) error {
 		return err
 	}
 
-	output, err := liquid.NewEngine().ParseAndRender(tmpl, map[string]interface{}{"LinkFilter": linkList, "Instance": instance})
+	output, err := liquid.NewEngine().ParseAndRender(tmpl, map[string]interface{}{"LinkList": linkList, "Instance": instance})
 	if err != nil {
 		logger.Errorf("failed to render template %s: %s", in, err)
 		return err
