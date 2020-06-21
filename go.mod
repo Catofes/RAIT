@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
+	github.com/go-playground/validator/v10 v10.3.0
 	github.com/osteele/liquid v1.2.4
 	github.com/osteele/tuesday v1.0.3 // indirect
 	github.com/stretchr/testify v1.5.1 // indirect
