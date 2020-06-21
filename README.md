@@ -1,25 +1,13 @@
 ## R.A.I.T. - Redundant Array of Inexpensive Tunnels
-#### Disclaimer
-
-RAIT is still in its early days of active development and **breaking changes** are expected to occur. **Linux** is the only officially supported platform.
-
 #### About
 
-RAIT, despite its name, is tightly tied with wireguard as the underlying transport, supporting the automated creation of full-mesh tunnels within a cluster of nodes. The **single** goal of RAIT is to form link local connectivity.
+rait, acronym for redundant array of inexpensive tunnels, is the missing the missing piece of the puzzle, for using wireguard to create distributed overlay networks. It serves the purpose by creating point to point tunnels between all participants, forming fully-meshed link-local connectivity. Meanwhile, the site scope routing and underlying signaling mechanism employed to exchange node metadata, is out of scope for this project.
+
+#### Operation
+
+Due to technical limitation of wireguard, namely crypto routing, it struggles to be integrated into routing daemons, thus we takes a different approach, creating a separate interface for each peer, *abusing* wireguard as a point to point transport, opposing to it's original design. While this approach do ensures fully-meshed connectivity instead of a hub and spoke architecture, it also voids the possibility to reuse a single port for multiple peers, though the consumption of port range is negligible (after all, we have 65535 ports to waste ¯\\_(ツ)_/¯), the coordination of port usage is a challenging task. rait solves the problem with the concept of "SendPort", a unique port assigned to each node, as the destination port of all packets originated by it. To separate overlay from underlay and avoid routing loops, rait extends the fwmark and netns used by wireguard with two other means, ifgroup and vrf, both eases the management of large volume of interfaces.
 
 #### Configuration Files
 
-For a reference of the configuration format, see [instance.go](pkg/rait/instance.go) and [peer.go](pkg/rait/peer.go)
+TODO
 
-#### Render
-
-Though RAIT provides nothing beyond link local connectivity, it is intended to be used in conjunction with routing daemons to form site local connectivity, the "rait render" subcommand thus exists to generate configuration files for routing daemons, the template engine used by RAIT is [liquid](https://shopify.github.io/liquid/), and the object passed to the template engine would be:
-
-```
-LinkList []string # A list of the wireguard interfaces managed by rait
-Client   Client # The exact representation of "rait.conf"
-```
-
-#### URL
-
-RAIT loads files from 'URLs', they can be of a file system path, http(s) url, or "stdin://"
