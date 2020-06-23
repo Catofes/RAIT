@@ -9,7 +9,7 @@ build:binary:
   image: golang:latest
   stage: build
   script:
-    - go build -ldflags "-X main.Version=`git describe --tags`" -o bin/rait cmd/rait/rait.go
+    - go build -buildmode pie -trimpath -ldflags "-s -w -X main.Version=`git describe --tags`" -o bin/rait cmd/rait/rait.go
   artifacts:
     paths:
       - bin/rait
