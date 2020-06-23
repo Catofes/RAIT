@@ -68,7 +68,6 @@ func (instance *Instance) WireguardConfig(peer *Peer) (string, *wgtypes.Config, 
 	return instance.InterfacePrefix + strconv.Itoa(peer.SendPort), &wgtypes.Config{
 		PrivateKey:   &privKey,
 		ListenPort:   &peer.SendPort,
-		BindAddress:  net.ParseIP(instance.BindAddress),
 		FirewallMark: &instance.FwMark,
 		ReplacePeers: true,
 		Peers: []wgtypes.PeerConfig{
