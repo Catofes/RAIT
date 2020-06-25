@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+func init(){
+	Register("vrf", NewVrfIsolation)
+}
+
 // VrfIndexFromName returns the index of the specified vrf interface
 func VrfIndexFromName(name string) (int, error) {
 	logger := zap.S().Named("isolation.VrfIndexFromName")
@@ -43,11 +47,11 @@ type VrfIsolation struct {
 // however, due to the technical limitation of wireguard
 // the transit vrf param may not function as intended
 // the vrf interfaces should be created in advance
-func NewVrfIsolation(transitVrf, interfaceVrf string) *VrfIsolation {
+func NewVrfIsolation(transitVrf, interfaceVrf string) (Isolation, error) {
 	return &VrfIsolation{
 		TransitVrf:   transitVrf,
 		InterfaceVrf: interfaceVrf,
-	}
+	}, nil
 }
 
 func (i *VrfIsolation) LinkEnsure(name string, config wgtypes.Config, mtu, ifgroup int) (err error) {

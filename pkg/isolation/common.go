@@ -6,6 +6,13 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+var isolationRegistry = make(map[string]func(string, string) (Isolation, error))
+
+// Register registers a isolation type into a internal registry to be used by NewGenericIsolation
+func Register(name string, fn func(string, string) (Isolation, error)) {
+	isolationRegistry[name] = fn
+}
+
 // Isolation represents a management interface for wireguard links
 // together with the isolation technique employed to isolate overlay from underlay
 type Isolation interface {
@@ -26,14 +33,14 @@ type GenericIsolation struct {
 // NewGenericIsolation provides a unified constructor for concrete implementations
 // current supported isolation types are netns and vrf
 func NewGenericIsolation(kind, transitScope, interfaceScope string) (*GenericIsolation, error) {
-	switch kind {
-	case "netns":
-		return &GenericIsolation{Isolation: NewNetnsIsolation(transitScope, interfaceScope)}, nil
-	case "vrf":
-		return &GenericIsolation{Isolation: NewVrfIsolation(transitScope, interfaceScope)}, nil
-	default:
-		return nil, fmt.Errorf("unsupported isolation type %s", kind)
+	if isoFn, ok := isolationRegistry[kind]; ok {
+		iso, err := isoFn(transitScope, interfaceScope)
+		if err != nil {
+			return nil, err
+		}
+		return &GenericIsolation{iso}, nil
 	}
+	return nil, fmt.Errorf("unsupported isolation type %s", kind)
 }
 
 // LinkConstrain accepts a list of link as the desired state, and removes the extraneous links

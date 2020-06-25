@@ -17,6 +17,10 @@ import (
 	"sync"
 )
 
+func init(){
+	Register("netns", NewNetnsIsolation)
+}
+
 // NetnsFromName creates and returns named network namespace,
 // or the current namespace if no name is specified
 func NetnsFromName(name string) (netns.NsHandle, error) {
@@ -124,11 +128,11 @@ type NetnsIsolation struct {
 // the creation of netns is handled internally
 // the links and sockets will be created in the transit namespace
 // and the links will be moved into the interface namespace
-func NewNetnsIsolation(transitNamespace, interfaceNamespace string) *NetnsIsolation {
+func NewNetnsIsolation(transitNamespace, interfaceNamespace string) (Isolation, error) {
 	return &NetnsIsolation{
 		TransitNamespace:   transitNamespace,
 		InterfaceNamespace: interfaceNamespace,
-	}
+	}, nil
 }
 
 func (i *NetnsIsolation) LinkEnsure(name string, config wgtypes.Config, mtu, ifgroup int) (err error) {
