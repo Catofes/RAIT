@@ -30,6 +30,7 @@
         <method importPath="gitlab.com/NickCao/RAIT/rait/internal/utils" receiver="*NetlinkHelper" name="Destroy" />
         <method importPath="io" receiver="ReadCloser" name="Close" />
         <method importPath="io" receiver="WriteCloser" name="Close" />
+        <method importPath="net" receiver="Conn" name="Close" />
       </methods>
     </inspection_tool>
   </profile>

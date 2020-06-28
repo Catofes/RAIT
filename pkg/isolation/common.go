@@ -43,7 +43,7 @@ func NewGenericIsolation(kind, transitScope, interfaceScope string) (*GenericIso
 	return nil, fmt.Errorf("unsupported isolation type %s", kind)
 }
 
-// LinkConstrain accepts a list of link as the desired state, and removes the extraneous links
+// LinkSync accepts a list of link as the desired state, and removes the extraneous links
 func (i *GenericIsolation) LinkConstrain(names []string, prefix string, ifgroup int) error {
 	linkList, err := i.LinkFilter(prefix, ifgroup)
 	if err != nil {
