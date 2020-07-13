@@ -10,6 +10,7 @@
       <w>fakeip</w>
       <w>fullpath</w>
       <w>fwmark</w>
+      <w>ifconfig</w>
       <w>ifgroup</w>
       <w>ifname</w>
       <w>ifnames</w>

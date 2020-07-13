@@ -83,7 +83,7 @@ func main() {
 			UsageText: "rait up [options]",
 			Flags:     commonFlags,
 			Before:    commonBeforeFunc,
-			Action: func(context *cli.Context) error {
+			Action: func(ctx *cli.Context) error {
 				return instance.SyncInterfaces(true)
 			},
 		}, {
@@ -93,7 +93,7 @@ func main() {
 			UsageText: "rait down [options]",
 			Flags:     commonFlags,
 			Before:    commonBeforeFunc,
-			Action: func(context *cli.Context) error {
+			Action: func(ctx *cli.Context) error {
 				return instance.SyncInterfaces(false)
 			},
 		}, {
@@ -103,11 +103,11 @@ func main() {
 			UsageText: "rait render [options] SRC DEST",
 			Flags:     commonFlags,
 			Before:    commonBeforeFunc,
-			Action: func(context *cli.Context) error {
-				if context.Args().Len() != 2 {
+			Action: func(ctx *cli.Context) error {
+				if ctx.Args().Len() != 2 {
 					return fmt.Errorf("expecting two arguments")
 				}
-				return instance.RenderTemplate(context.Args().Get(0), context.Args().Get(1))
+				return instance.RenderTemplate(ctx.Args().Get(0), ctx.Args().Get(1))
 			},
 		}, {
 			Name:      "babeld",
@@ -140,7 +140,7 @@ func main() {
 				Flags:     babeldFlags,
 				Before:    babeldBeforeFunc,
 				Action: func(context *cli.Context) error {
-					links, err := instance.ListInterface()
+					links, err := instance.ListInterfaceName()
 					if err != nil {
 						return err
 					}

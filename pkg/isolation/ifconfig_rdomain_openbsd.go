@@ -1,6 +1,8 @@
 package isolation
 
-import "golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+import (
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+)
 
 func init() {
 	Register("rdomain", NewRdomainIsolation)
@@ -18,14 +20,14 @@ func NewRdomainIsolation(transitDomain, interfaceDomain string) (Isolation, erro
 	}, nil
 }
 
-func (r RdomainIsolation) LinkEnsure(ifname string, config wgtypes.Config, mtu, ifgroup int) error {
+func (r RdomainIsolation) LinkEnsure(attrs *LinkAttrs, config wgtypes.Config) error {
 	panic("to be implemented")
 }
 
-func (r RdomainIsolation) LinkAbsent(ifname string) error {
+func (r RdomainIsolation) LinkAbsent(link *LinkAttrs) error {
 	panic("to be implemented")
 }
 
-func (r RdomainIsolation) LinkFilter(prefix string, ifgroup int) ([]string, error) {
+func (r RdomainIsolation) LinkList() ([]*LinkAttrs, error) {
 	panic("to be implemented")
 }

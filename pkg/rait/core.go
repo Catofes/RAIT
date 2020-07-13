@@ -1,29 +1,35 @@
 package rait
 
 import (
+	"fmt"
 	"gitlab.com/NickCao/RAIT/v2/pkg/isolation"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 	"go.uber.org/zap"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
 	"strconv"
+	"strings"
 )
 
-func(instance *Instance) ListInterface() ([]string, error) {
-	logger := zap.S().Named("rait.Instance.ListInterfaces")
+func (instance *Instance) IsManagedInterface(attrs *isolation.LinkAttrs) bool {
+	return strings.HasPrefix(attrs.Name, instance.InterfacePrefix) && attrs.Group == instance.InterfaceGroup
+}
 
-	gi, err := isolation.NewGenericIsolation(instance.Isolation, instance.TransitNamespace, instance.InterfaceNamespace)
+func (instance *Instance) ListInterfaceName() ([]string, error) {
+	iso, err := isolation.NewIsolation(instance.Isolation, instance.TransitNamespace, instance.InterfaceNamespace)
 	if err != nil {
-		logger.Errorf("failed to create isolation: %s", instance.Isolation)
 		return nil, err
 	}
 
-	return gi.LinkFilter(instance.InterfacePrefix, instance.InterfaceGroup)
+	unfiltered, err := iso.LinkList()
+	if err != nil {
+		return nil, err
+	}
+
+	return isolation.LinkString(isolation.LinkFilter(unfiltered, instance.IsManagedInterface)), nil
 }
 
 func (instance *Instance) LoadPeers() ([]*Peer, error) {
-	logger := zap.S().Named("rait.Instance.LoadPeers")
-
 	peers, err := PeersFromPath(instance.Peers)
 	if err != nil {
 		return nil, err
@@ -31,10 +37,10 @@ func (instance *Instance) LoadPeers() ([]*Peer, error) {
 
 	key, err := wgtypes.ParseKey(instance.PrivateKey)
 	if err != nil {
-		logger.Errorf("failed to parse instance private key: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to parse instance private key: %w", err)
 	}
 
+	// some in place array filtering magic
 	n := 0
 	for _, x := range peers {
 		if x.AddressFamily == instance.AddressFamily &&
@@ -47,19 +53,17 @@ func (instance *Instance) LoadPeers() ([]*Peer, error) {
 	return peers, nil
 }
 
-func (instance *Instance) WireguardConfig(peer *Peer) (string, *wgtypes.Config, error) {
-	logger := zap.S().Named("rait.Instance.WireguardConfig")
+func (instance *Instance) InterfaceConfig(peer *Peer) (*isolation.LinkAttrs, *wgtypes.Config, error) {
+	logger := zap.S().Named("rait.Instance.InterfaceConfig")
 
 	privKey, err := wgtypes.ParseKey(instance.PrivateKey)
 	if err != nil {
-		logger.Errorf("failed to parse instance private key: %s", err)
-		return "", nil, err
+		return nil, nil, fmt.Errorf("failed to parse instance private key: %w", err)
 	}
 
 	pubKey, err := wgtypes.ParseKey(peer.PublicKey)
 	if err != nil {
-		logger.Errorf("failed to parse peer public key: %s", err)
-		return "", nil, err
+		return nil, nil, fmt.Errorf("failed to parse peer public key: %w", err)
 	}
 
 	var endpoint net.IP
@@ -77,31 +81,33 @@ func (instance *Instance) WireguardConfig(peer *Peer) (string, *wgtypes.Config, 
 		endpoint = resolved.IP
 	}
 
-	return instance.InterfacePrefix + strconv.Itoa(peer.SendPort), &wgtypes.Config{
-		PrivateKey:   &privKey,
-		ListenPort:   &peer.SendPort,
-		FirewallMark: &instance.FwMark,
-		ReplacePeers: true,
-		Peers: []wgtypes.PeerConfig{
-			{
-				PublicKey:    pubKey,
-				Remove:       false,
-				UpdateOnly:   false,
-				PresharedKey: nil,
-				Endpoint: &net.UDPAddr{
-					IP:   endpoint,
-					Port: instance.SendPort,
+	return &isolation.LinkAttrs{
+			Name:  instance.InterfacePrefix + strconv.Itoa(peer.SendPort),
+			MTU:   instance.MTU,
+			Group: instance.InterfaceGroup,
+		}, &wgtypes.Config{
+			PrivateKey:   &privKey,
+			ListenPort:   &peer.SendPort,
+			FirewallMark: &instance.FwMark,
+			ReplacePeers: true,
+			Peers: []wgtypes.PeerConfig{
+				{
+					PublicKey:    pubKey,
+					Remove:       false,
+					UpdateOnly:   false,
+					PresharedKey: nil,
+					Endpoint: &net.UDPAddr{
+						IP:   endpoint,
+						Port: instance.SendPort,
+					},
+					ReplaceAllowedIPs: true,
+					AllowedIPs:        misc.IPNetAll,
 				},
-				ReplaceAllowedIPs: true,
-				AllowedIPs:        misc.IPNetAll,
 			},
-		},
-	}, nil
+		}, nil
 }
 
 func (instance *Instance) SyncInterfaces(up bool) error {
-	logger := zap.S().Named("rait.Instance.SyncInterfaces")
-
 	var peers []*Peer
 	var err error
 	if up {
@@ -111,28 +117,37 @@ func (instance *Instance) SyncInterfaces(up bool) error {
 		}
 	}
 
-	gi, err := isolation.NewGenericIsolation(instance.Isolation, instance.TransitNamespace, instance.InterfaceNamespace)
+	iso, err := isolation.NewIsolation(instance.Isolation, instance.TransitNamespace, instance.InterfaceNamespace)
 	if err != nil {
-		logger.Errorf("failed to create isolation: %s", instance.Isolation)
 		return err
 	}
 
-	var targetLinkList []string
+	var targetLinkList []*isolation.LinkAttrs
 	for _, peer := range peers {
-		name, config, err := instance.WireguardConfig(peer)
+		attrs, config, err := instance.InterfaceConfig(peer)
 		if err != nil {
 			return err
 		}
-		err = gi.LinkEnsure(name, *config, instance.MTU, instance.InterfaceGroup)
+		err = iso.LinkEnsure(attrs, *config)
 		if err != nil {
 			return err
 		}
-		targetLinkList = append(targetLinkList, name)
+		targetLinkList = append(targetLinkList, attrs)
 	}
 
-	err = gi.LinkConstrain(targetLinkList, instance.InterfacePrefix, instance.InterfaceGroup)
+	unfiltered, err := iso.LinkList()
 	if err != nil {
 		return err
+	}
+	currentLinkList := isolation.LinkFilter(unfiltered, instance.IsManagedInterface)
+
+	for _, link := range currentLinkList {
+		if !isolation.LinkIn(targetLinkList, link) {
+			err = iso.LinkAbsent(link)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

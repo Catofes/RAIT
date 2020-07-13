@@ -3,7 +3,7 @@ package babeld
 import (
 	"bufio"
 	"fmt"
-	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
+	"go.uber.org/zap"
 	"io"
 	"io/ioutil"
 	"net"
@@ -15,16 +15,25 @@ type Babeld struct {
 	Address string
 }
 
+func NewBabeld(network, address string) *Babeld {
+	return &Babeld{
+		Network: network,
+		Address: address,
+	}
+}
+
 func (b *Babeld) LinkList() ([]string, error) {
+	logger := zap.S().Named("babeld.Babeld.LinkList")
+
 	conn, err := net.Dial(b.Network, b.Address)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to babeld control socket: %w", err)
 	}
 	defer conn.Close()
 
 	_, err = fmt.Fprint(conn, "dump\nquit\n")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write to babeld control socket: %w", err)
 	}
 
 	var interfaces []string
@@ -36,6 +45,7 @@ func (b *Babeld) LinkList() ([]string, error) {
 		}
 		switch tokens[1] {
 		case "interface":
+			logger.Debugf("found interface: %s", scanner.Text())
 			interfaces = append(interfaces, tokens[2])
 		}
 	}
@@ -43,39 +53,45 @@ func (b *Babeld) LinkList() ([]string, error) {
 }
 
 func (b *Babeld) LinkAdd(i string) error {
+	logger := zap.S().Named("babeld.Babeld.LinkAdd")
+
 	conn, err := net.Dial(b.Network, b.Address)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to babeld control socket: %w", err)
 	}
 	defer conn.Close()
 
 	_, err = fmt.Fprintf(conn, "interface %s\nquit\n", i)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write to babeld control socket: %w", err)
 	}
+	logger.Debugf("added interface: %s", i)
 
 	_, err = io.Copy(ioutil.Discard, conn)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to discard babeld control socket: %w", err)
 	}
 	return nil
 }
 
 func (b *Babeld) LinkDel(i string) error {
+	logger := zap.S().Named("babeld.Babeld.LinkDel")
+
 	conn, err := net.Dial(b.Network, b.Address)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to babeld control socket: %w", err)
 	}
 	defer conn.Close()
 
 	_, err = fmt.Fprintf(conn, "flush interface %s\nquit\n", i)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write to babeld control socket: %w", err)
 	}
+	logger.Debugf("removed interface: %s", i)
 
 	_, err = io.Copy(ioutil.Discard, conn)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to discard babeld control socket: %w", err)
 	}
 	return nil
 }
@@ -87,7 +103,7 @@ func (b *Babeld) LinkSync(target []string) error {
 	}
 
 	for _, link := range current {
-		if !misc.In(target, link) {
+		if !stringIn(target, link) {
 			err = b.LinkDel(link)
 			if err != nil {
 				return err
@@ -96,7 +112,7 @@ func (b *Babeld) LinkSync(target []string) error {
 	}
 
 	for _, link := range target {
-		if !misc.In(current, link) {
+		if !stringIn(current, link) {
 			err = b.LinkAdd(link)
 			if err != nil {
 				return err
@@ -104,4 +120,13 @@ func (b *Babeld) LinkSync(target []string) error {
 		}
 	}
 	return nil
+}
+
+func stringIn(list []string, item string) bool {
+	for _, v := range list {
+		if v == item {
+			return true
+		}
+	}
+	return false
 }

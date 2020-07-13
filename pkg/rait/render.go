@@ -2,7 +2,6 @@ package rait
 
 import (
 	"github.com/osteele/liquid"
-	"gitlab.com/NickCao/RAIT/v2/pkg/isolation"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 	"go.uber.org/zap"
 	"io/ioutil"
@@ -30,12 +29,7 @@ func (instance *Instance) RenderTemplate(in string, out string) error {
 		return err
 	}
 
-	gi, err := isolation.NewGenericIsolation(instance.Isolation, instance.TransitNamespace, instance.InterfaceNamespace)
-	if err != nil {
-		return err
-	}
-
-	linkList, err := gi.LinkFilter(instance.InterfacePrefix, instance.InterfaceGroup)
+	linkList, err := instance.ListInterfaceName()
 	if err != nil {
 		return err
 	}
