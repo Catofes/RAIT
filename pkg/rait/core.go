@@ -9,6 +9,18 @@ import (
 	"strconv"
 )
 
+func(instance *Instance) ListInterface() ([]string, error) {
+	logger := zap.S().Named("rait.Instance.ListInterfaces")
+
+	gi, err := isolation.NewGenericIsolation(instance.Isolation, instance.TransitNamespace, instance.InterfaceNamespace)
+	if err != nil {
+		logger.Errorf("failed to create isolation: %s", instance.Isolation)
+		return nil, err
+	}
+
+	return gi.LinkFilter(instance.InterfacePrefix, instance.InterfaceGroup)
+}
+
 func (instance *Instance) LoadPeers() ([]*Peer, error) {
 	logger := zap.S().Named("rait.Instance.LoadPeers")
 

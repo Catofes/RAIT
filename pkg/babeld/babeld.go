@@ -15,7 +15,7 @@ type Babeld struct {
 	Address string
 }
 
-func (b *Babeld) ListList() ([]string, error) {
+func (b *Babeld) LinkList() ([]string, error) {
 	conn, err := net.Dial(b.Network, b.Address)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func (b *Babeld) LinkDel(i string) error {
 }
 
 func (b *Babeld) LinkSync(target []string) error {
-	current, err := b.ListList()
+	current, err := b.LinkList()
 	if err != nil {
 		return err
 	}
