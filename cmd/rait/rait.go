@@ -11,15 +11,15 @@ import (
 )
 
 var Version string
-var instance *rait.Instance
+var ra *rait.RAIT
 var babel *babeld.Babeld
 
 var commonFlags = []cli.Flag{
-	&cli.StringFlag{
+	&cli.StringSliceFlag{
 		Name:    "config",
-		Usage:   "path to configuration file",
+		Usage:   "path to configuration file, can be specified multiple times",
 		Aliases: []string{"c"},
-		Value:   "/etc/rait/rait.conf",
+		Value:   cli.NewStringSlice("/etc/rait/rait.conf"),
 	},
 	&cli.BoolFlag{
 		Name:    "debug",
@@ -55,7 +55,7 @@ var commonBeforeFunc = func(ctx *cli.Context) error {
 		zap.ReplaceGlobals(logger)
 	}
 
-	instance, err = rait.InstanceFromPath(ctx.String("config"))
+	ra, err = rait.RAITFromPaths(ctx.StringSlice("config"))
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func main() {
 			Flags:     commonFlags,
 			Before:    commonBeforeFunc,
 			Action: func(ctx *cli.Context) error {
-				return instance.SyncInterfaces(true)
+				return ra.SyncInterfaces(true)
 			},
 		}, {
 			Name:      "down",
@@ -94,7 +94,7 @@ func main() {
 			Flags:     commonFlags,
 			Before:    commonBeforeFunc,
 			Action: func(ctx *cli.Context) error {
-				return instance.SyncInterfaces(false)
+				return ra.SyncInterfaces(false)
 			},
 		}, {
 			Name:      "render",
@@ -107,7 +107,11 @@ func main() {
 				if ctx.Args().Len() != 2 {
 					return fmt.Errorf("expecting two arguments")
 				}
-				return instance.RenderTemplate(ctx.Args().Get(0), ctx.Args().Get(1))
+				list, err := ra.ListInterfaceName()
+				if err != nil{
+					return err
+				}
+				return rait.RenderTemplate(ctx.Args().Get(0), ctx.Args().Get(1), list)
 			},
 		}, {
 			Name:      "babeld",
@@ -140,7 +144,7 @@ func main() {
 				Flags:     babeldFlags,
 				Before:    babeldBeforeFunc,
 				Action: func(context *cli.Context) error {
-					links, err := instance.ListInterfaceName()
+					links, err := ra.ListInterfaceName()
 					if err != nil {
 						return err
 					}
