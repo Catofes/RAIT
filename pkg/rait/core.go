@@ -91,6 +91,7 @@ func (instance *Instance) InterfaceConfig(peer *Peer) (*isolation.LinkAttrs, *wg
 		}, &wgtypes.Config{
 			PrivateKey:   &privKey,
 			ListenPort:   listenPort,
+			BindAddress:  net.ParseIP(instance.BindAddress),
 			FirewallMark: &instance.FwMark,
 			ReplacePeers: true,
 			Peers: []wgtypes.PeerConfig{
