@@ -101,5 +101,5 @@ func NetlinkFromName(name string) (*netlink.Handle, error) {
 		return nil, err
 	}
 	defer ns.Close()
-	return netlink.NewHandleAt(ns)
+	return netlink.NewHandleAt(ns, unix.NETLINK_ROUTE, unix.NETLINK_NETFILTER)
 }
