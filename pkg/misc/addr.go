@@ -4,8 +4,13 @@ import (
 	"fmt"
 	"github.com/vishvananda/netlink"
 	"math/rand"
+	"net"
 	"time"
 )
+
+var IPNetAll = []net.IPNet{{IP: net.IP{0, 0, 0, 0}, Mask: net.IPMask{0, 0, 0, 0}},
+	{IP: net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		Mask: net.IPMask{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}
 
 // LinkLocalAddr generates a RFC 4862 compliant linklocal address, from a random mac address
 func LinkLocalAddr() *netlink.Addr {

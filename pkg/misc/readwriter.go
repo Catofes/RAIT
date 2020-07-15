@@ -2,7 +2,6 @@ package misc
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/url"
@@ -12,11 +11,9 @@ import (
 // WriteCloserFromPath returns a WriteCloser from the given path
 // path can be a file system path, or "-" for stdout
 func WriteCloserFromPath(path string) (io.WriteCloser, error) {
-	logger := zap.S().Named("misc.WriteCloserFromPath")
 	parsed, err := url.Parse(path)
 	if err != nil {
-		logger.Errorf("failed to parse path: %s, error %s", path, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to parse path: %s: %w", path, err)
 	}
 	switch parsed.Scheme {
 	case "":
@@ -25,30 +22,26 @@ func WriteCloserFromPath(path string) (io.WriteCloser, error) {
 		}
 		file, err := os.Create(path)
 		if err != nil {
-			logger.Errorf("failed to create filesystem path: %s, error %s", path, err)
-			return nil, err
+			return nil, fmt.Errorf("failed to create filesystem path: %s: %w", path, err)
 		}
 		return file, nil
 	default:
-		return nil, fmt.Errorf("unsupported url scheme: %s", parsed.Scheme)
+		return nil, fmt.Errorf("unsupported url scheme to write: %s", parsed.Scheme)
 	}
 }
 
 // ReadCloserFromPath returns a ReadCloser from the given path
 // path can be a file system path, a http url, or "-" for stdin
 func ReadCloserFromPath(path string) (io.ReadCloser, error) {
-	logger := zap.S().Named("misc.ReadCloserFromPath")
 	parsed, err := url.Parse(path)
 	if err != nil {
-		logger.Errorf("failed to parse path: %s, error %s", path, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to parse path: %s: %w", path, err)
 	}
 	switch parsed.Scheme {
 	case "http", "https":
 		resp, err := http.Get(path)
 		if err != nil {
-			logger.Errorf("failed to make http request: %s, error %s", path, err)
-			return nil, err
+			return nil, fmt.Errorf("failed to make http request: %s: %w", path, err)
 		}
 		return resp.Body, nil
 	case "":
@@ -57,11 +50,10 @@ func ReadCloserFromPath(path string) (io.ReadCloser, error) {
 		}
 		file, err := os.Open(path)
 		if err != nil {
-			logger.Errorf("failed to open filesystem path: %s, error %s", path, err)
-			return nil, err
+			return nil, fmt.Errorf("failed to open filesystem path: %s: %w", path, err)
 		}
 		return file, nil
 	default:
-		return nil, fmt.Errorf("unsupported url scheme: %s", parsed.Scheme)
+		return nil, fmt.Errorf("unsupported url scheme to read: %s", parsed.Scheme)
 	}
 }

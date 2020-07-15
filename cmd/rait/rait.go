@@ -6,13 +6,12 @@ import (
 	"gitlab.com/NickCao/RAIT/v2/pkg/babeld"
 	"gitlab.com/NickCao/RAIT/v2/pkg/rait"
 	"go.uber.org/zap"
-	"log"
 	"os"
 )
 
 var Version string
 var ra *rait.RAIT
-var babel *babeld.Babeld
+var ba *babeld.Babeld
 
 var commonFlags = []cli.Flag{
 	&cli.StringSliceFlag{
@@ -31,7 +30,7 @@ var commonFlags = []cli.Flag{
 
 var babeldFlags = append(commonFlags,
 	&cli.StringFlag{
-		Name:    "babel",
+		Name:    "babeld",
 		Usage:   "path to babeld control socket",
 		Aliases: []string{"b"},
 		Value:   "/run/babeld.ctl",
@@ -44,30 +43,31 @@ var babeldFlags = append(commonFlags,
 	})
 
 var commonBeforeFunc = func(ctx *cli.Context) error {
+	ba = babeld.NewBabeld(ctx.String("network"), ctx.String("babeld"))
+
 	var err error
 	var logger *zap.Logger
 
-	if ctx.Bool("debug") {
-		logger, err = zap.NewDevelopment()
-		if err != nil {
-			return err
-		}
-		zap.ReplaceGlobals(logger)
+	config := zap.NewDevelopmentConfig()
+	config.DisableStacktrace = true
+	switch ctx.Bool("debug") {
+	case true:
+		config.Level.SetLevel(zap.DebugLevel)
+	case false:
+		config.Level.SetLevel(zap.InfoLevel)
 	}
+	logger, err = config.Build()
+
+	if err != nil {
+		return err
+	}
+	zap.ReplaceGlobals(logger)
 
 	ra, err = rait.RAITFromPaths(ctx.StringSlice("config"))
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-var babeldBeforeFunc = func(ctx *cli.Context) error {
-	babel = &babeld.Babeld{
-		Network: ctx.String("network"),
-		Address: ctx.String("babel"),
-	}
-	return commonBeforeFunc(ctx)
 }
 
 func main() {
@@ -105,13 +105,9 @@ func main() {
 			Before:    commonBeforeFunc,
 			Action: func(ctx *cli.Context) error {
 				if ctx.Args().Len() != 2 {
-					return fmt.Errorf("expecting two arguments")
+					return fmt.Errorf("render expects two arguments, SRC and DEST")
 				}
-				list, err := ra.ListInterfaceName()
-				if err != nil{
-					return err
-				}
-				return rait.RenderTemplate(ctx.Args().Get(0), ctx.Args().Get(1), list)
+				return ra.RenderTemplate(ctx.Args().Get(0), ctx.Args().Get(1))
 			},
 		}, {
 			Name:      "babeld",
@@ -124,9 +120,9 @@ func main() {
 				Usage:     "list babeld interfaces",
 				UsageText: "rait babeld list [options]",
 				Flags:     babeldFlags,
-				Before:    babeldBeforeFunc,
+				Before:    commonBeforeFunc,
 				Action: func(context *cli.Context) error {
-					links, err := babel.LinkList()
+					links, err := ba.LinkList()
 					if err != nil {
 						return err
 					}
@@ -142,21 +138,21 @@ func main() {
 				Usage:     "sync babeld interfaces",
 				UsageText: "rait babeld sync [options]",
 				Flags:     babeldFlags,
-				Before:    babeldBeforeFunc,
+				Before:    commonBeforeFunc,
 				Action: func(context *cli.Context) error {
 					links, err := ra.ListInterfaceName()
 					if err != nil {
 						return err
 					}
-					return babel.LinkSync(links)
+					return ba.LinkSync(links)
 				},
 			}},
 		}},
 		HideHelpCommand: true,
 	}
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Println(err)
+
+	if err := app.Run(os.Args); err != nil {
+		zap.S().Error(err)
 		os.Exit(1)
 	}
 }

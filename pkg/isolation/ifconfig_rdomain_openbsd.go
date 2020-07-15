@@ -9,8 +9,8 @@ func init() {
 }
 
 type RdomainIsolation struct {
-	TransitDomain   string
-	InterfaceDomain string
+	transitDomain   string
+	interfaceDomain string
 }
 
 func NewRdomainIsolation(transitDomain, interfaceDomain string) (Isolation, error) {

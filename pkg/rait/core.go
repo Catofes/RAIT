@@ -54,8 +54,6 @@ func (instance *Instance) LoadPeers() ([]*Peer, error) {
 }
 
 func (instance *Instance) InterfaceConfig(peer *Peer) (*isolation.LinkAttrs, *wgtypes.Config, error) {
-	logger := zap.S().Named("rait.Instance.InterfaceConfig")
-
 	privKey, err := wgtypes.ParseKey(instance.PrivateKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse instance private key: %w", err)
@@ -69,7 +67,7 @@ func (instance *Instance) InterfaceConfig(peer *Peer) (*isolation.LinkAttrs, *wg
 	var endpoint net.IP
 	resolved, err := net.ResolveIPAddr(instance.AddressFamily, peer.Endpoint)
 	if err != nil || resolved.IP == nil {
-		logger.Debugf("peer endpoint %s resolve failed in address family %s, falling back to localhost", peer.Endpoint, instance.AddressFamily)
+		zap.S().Debugf("peer endpoint %s resolve failed in address family %s, falling back to localhost", peer.Endpoint, instance.AddressFamily)
 		switch instance.AddressFamily {
 		case "ip4":
 			endpoint = net.ParseIP("127.0.0.1")
@@ -77,8 +75,13 @@ func (instance *Instance) InterfaceConfig(peer *Peer) (*isolation.LinkAttrs, *wg
 			endpoint = net.ParseIP("::1")
 		}
 	} else {
-		logger.Debugf("peer endpoint %s resolved as %s in address family %s", peer.Endpoint, resolved.IP, instance.AddressFamily)
+		zap.S().Debugf("peer endpoint %s resolved as %s in address family %s", peer.Endpoint, resolved.IP, instance.AddressFamily)
 		endpoint = resolved.IP
+	}
+
+	listenPort := &peer.SendPort
+	if instance.DynamicListenPort {
+		listenPort = nil
 	}
 
 	return &isolation.LinkAttrs{
@@ -87,7 +90,7 @@ func (instance *Instance) InterfaceConfig(peer *Peer) (*isolation.LinkAttrs, *wg
 			Group: instance.InterfaceGroup,
 		}, &wgtypes.Config{
 			PrivateKey:   &privKey,
-			ListenPort:   &peer.SendPort,
+			ListenPort:   listenPort,
 			FirewallMark: &instance.FwMark,
 			ReplacePeers: true,
 			Peers: []wgtypes.PeerConfig{

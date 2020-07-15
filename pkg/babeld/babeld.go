@@ -11,21 +11,19 @@ import (
 )
 
 type Babeld struct {
-	Network string
-	Address string
+	network string
+	address string
 }
 
 func NewBabeld(network, address string) *Babeld {
 	return &Babeld{
-		Network: network,
-		Address: address,
+		network: network,
+		address: address,
 	}
 }
 
 func (b *Babeld) LinkList() ([]string, error) {
-	logger := zap.S().Named("babeld.Babeld.LinkList")
-
-	conn, err := net.Dial(b.Network, b.Address)
+	conn, err := net.Dial(b.network, b.address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to babeld control socket: %w", err)
 	}
@@ -45,7 +43,7 @@ func (b *Babeld) LinkList() ([]string, error) {
 		}
 		switch tokens[1] {
 		case "interface":
-			logger.Debugf("found interface: %s", scanner.Text())
+			zap.S().Debugf("found babeld interface: %s", scanner.Text())
 			interfaces = append(interfaces, tokens[2])
 		}
 	}
@@ -53,9 +51,7 @@ func (b *Babeld) LinkList() ([]string, error) {
 }
 
 func (b *Babeld) LinkAdd(i string) error {
-	logger := zap.S().Named("babeld.Babeld.LinkAdd")
-
-	conn, err := net.Dial(b.Network, b.Address)
+	conn, err := net.Dial(b.network, b.address)
 	if err != nil {
 		return fmt.Errorf("failed to connect to babeld control socket: %w", err)
 	}
@@ -65,19 +61,17 @@ func (b *Babeld) LinkAdd(i string) error {
 	if err != nil {
 		return fmt.Errorf("failed to write to babeld control socket: %w", err)
 	}
-	logger.Debugf("added interface: %s", i)
+	zap.S().Debugf("added babeld interface: %s", i)
 
 	_, err = io.Copy(ioutil.Discard, conn)
 	if err != nil {
-		return fmt.Errorf("failed to discard babeld control socket: %w", err)
+		return fmt.Errorf("failed to drain babeld control socket: %w", err)
 	}
 	return nil
 }
 
 func (b *Babeld) LinkDel(i string) error {
-	logger := zap.S().Named("babeld.Babeld.LinkDel")
-
-	conn, err := net.Dial(b.Network, b.Address)
+	conn, err := net.Dial(b.network, b.address)
 	if err != nil {
 		return fmt.Errorf("failed to connect to babeld control socket: %w", err)
 	}
@@ -87,11 +81,11 @@ func (b *Babeld) LinkDel(i string) error {
 	if err != nil {
 		return fmt.Errorf("failed to write to babeld control socket: %w", err)
 	}
-	logger.Debugf("removed interface: %s", i)
+	zap.S().Debugf("removed babeld interface: %s", i)
 
 	_, err = io.Copy(ioutil.Discard, conn)
 	if err != nil {
-		return fmt.Errorf("failed to discard babeld control socket: %w", err)
+		return fmt.Errorf("failed to drain babeld control socket: %w", err)
 	}
 	return nil
 }

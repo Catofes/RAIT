@@ -16,7 +16,6 @@ import (
 // NetNSFromName creates and returns named network namespace,
 // or the current namespace if no name is specified
 func NetNSFromName(name string) (netns.NsHandle, error) {
-	logger := zap.S().Named("isolation.NetNSFromName")
 	// shortcut for current namespace
 	if name == "" {
 		return netns.Get()
@@ -48,7 +47,7 @@ func NetNSFromName(name string) (netns.NsHandle, error) {
 		if err != nil {
 			return 0, fmt.Errorf("failed to mount tmpfs onto runtime dir: %s, error %w", runtimeDir, err)
 		}
-		logger.Debugf("created netns runtime dir: %s", runtimeDir)
+		zap.S().Debugf("created netns runtime dir: %s", runtimeDir)
 	}
 
 	// create the fd for the new namespace
@@ -64,7 +63,7 @@ func NetNSFromName(name string) (netns.NsHandle, error) {
 	// cleanup the fd file in case of failure
 	// this has no effect when the new netns is successfully mounted
 	defer os.RemoveAll(nsPath)
-	logger.Debugf("created netns fd: %s", nsPath)
+	zap.S().Debugf("created netns fd: %s", nsPath)
 
 	// do the dirty jobs in a locked os thread
 	// go runtime will reap it instead of reuse it
@@ -90,7 +89,7 @@ func NetNSFromName(name string) (netns.NsHandle, error) {
 		return 0, err
 	}
 
-	logger.Debugf("created namespace: %s", name)
+	zap.S().Debugf("created namespace: %s", name)
 	return netns.GetFromName(name)
 }
 
@@ -101,5 +100,5 @@ func NetlinkFromName(name string) (*netlink.Handle, error) {
 		return nil, err
 	}
 	defer ns.Close()
-	return netlink.NewHandleAt(ns, unix.NETLINK_ROUTE, unix.NETLINK_NETFILTER)
+	return netlink.NewHandleAt(ns, unix.NETLINK_ROUTE)
 }

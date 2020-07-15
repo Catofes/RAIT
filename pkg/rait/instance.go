@@ -1,6 +1,7 @@
 package rait
 
 import (
+	"fmt"
 	"github.com/go-playground/validator/v10"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 )
@@ -13,10 +14,11 @@ type Instance struct {
 	SendPort      int    `validate:"required,min=1,max=65535"` // required, the sending (destination) port of wireguard sockets
 	BindAddress   string `validate:"omitempty,ip"`             // the local address for wireguard sockets to bind to
 
-	InterfacePrefix string `validate:"required"`                    // [rait], the common prefix to name the wireguard interfaces
-	InterfaceGroup  int    `validate:"min=0,max=2147483647"`        // [54], the ifgroup for the wireguard interfaces
-	MTU             int    `validate:"required,min=1280,max=65535"` // [1400], the MTU of the wireguard interfaces
-	FwMark          int    `validate:"min=0,max=4294967295"`        // [0x36], the fwmark on packets sent by wireguard sockets
+	InterfacePrefix   string `validate:"required"`                    // [rait], the common prefix to name the wireguard interfaces
+	InterfaceGroup    int    `validate:"min=0,max=2147483647"`        // [54], the ifgroup for the wireguard interfaces
+	MTU               int    `validate:"required,min=1280,max=65535"` // [1400], the MTU of the wireguard interfaces
+	FwMark            int    `validate:"min=0,max=4294967295"`        // [0x36], the fwmark on packets sent by wireguard sockets
+	DynamicListenPort bool   // false, use dynamic listen ports instead of pre-defined ones
 
 	Isolation          string `validate:"required,oneof=netns vrf"` // [netns]/vrf, the isolation method to separate overlay from underlay
 	InterfaceNamespace string // the netns or vrf to move wireguard interface into
@@ -28,19 +30,20 @@ type Instance struct {
 
 func InstanceFromPath(path string) (*Instance, error) {
 	var instance = Instance{
-		AddressFamily:   "ip4",
-		InterfacePrefix: "rait",
-		InterfaceGroup:  54,
-		MTU:             1400,
-		FwMark:          0x36,
-		Isolation:       "netns",
-		Peers:           "/etc/rait/peers.conf",
+		AddressFamily:     "ip4",
+		InterfacePrefix:   "rait",
+		InterfaceGroup:    54,
+		MTU:               1400,
+		FwMark:            0x36,
+		DynamicListenPort: false,
+		Isolation:         "netns",
+		Peers:             "/etc/rait/peers.conf",
 	}
 	if err := misc.DecodeTOMLFromPath(path, &instance); err != nil {
 		return nil, err
 	}
 	if err := validator.New().Struct(&instance); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to validate rait config %s: %w", path, err)
 	}
 	return &instance, nil
 }

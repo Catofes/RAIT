@@ -16,8 +16,6 @@ type Peer struct {
 }
 
 func PeersFromPath(path string) ([]*Peer, error) {
-	logger := zap.S().Named("rait.PeersFromPath")
-
 	var peers struct {
 		Peers []*Peer
 	}
@@ -35,7 +33,7 @@ func PeersFromPath(path string) ([]*Peer, error) {
 			peers.Peers[n] = x
 			n++
 		} else {
-			logger.Debugf("peer with public key %s is invalid, discarding", x.PublicKey)
+			zap.S().Debugf("peer with public key %s is invalid, discarding", x.PublicKey)
 		}
 	}
 	peers.Peers = peers.Peers[:n]

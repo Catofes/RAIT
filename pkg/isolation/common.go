@@ -5,11 +5,11 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var isolationRegistry = make(map[string]func(string, string) (Isolation, error))
+var registry = make(map[string]func(string, string) (Isolation, error))
 
-// Register registers a isolation type into a internal registry to be used by NewGenericIsolation
+// Register registers a isolation type into a internal registry to be used by NewIsolation
 func Register(name string, fn func(string, string) (Isolation, error)) {
-	isolationRegistry[name] = fn
+	registry[name] = fn
 }
 
 // LinkAttrs represents a single link managed by isolation
@@ -34,7 +34,7 @@ type Isolation interface {
 // NewIsolation provides a unified constructor for concrete implementations
 // current supported isolation types are netns and vrf
 func NewIsolation(kind, transitScope, interfaceScope string) (Isolation, error) {
-	if isoFn, ok := isolationRegistry[kind]; ok {
+	if isoFn, ok := registry[kind]; ok {
 		iso, err := isoFn(transitScope, interfaceScope)
 		if err != nil {
 			return nil, err
