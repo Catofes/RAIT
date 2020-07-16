@@ -50,14 +50,14 @@ func (b *Babeld) LinkList() ([]string, error) {
 	return interfaces, nil
 }
 
-func (b *Babeld) LinkAdd(i string) error {
+func (b *Babeld) LinkAdd(i, conf string) error {
 	conn, err := net.Dial(b.network, b.address)
 	if err != nil {
 		return fmt.Errorf("failed to connect to babeld control socket: %w", err)
 	}
 	defer conn.Close()
 
-	_, err = fmt.Fprintf(conn, "interface %s\nquit\n", i)
+	_, err = fmt.Fprintf(conn, "interface %s %s\nquit\n", i, conf)
 	if err != nil {
 		return fmt.Errorf("failed to write to babeld control socket: %w", err)
 	}
@@ -90,7 +90,7 @@ func (b *Babeld) LinkDel(i string) error {
 	return nil
 }
 
-func (b *Babeld) LinkSync(target []string) error {
+func (b *Babeld) LinkSync(target []string, conf string) error {
 	current, err := b.LinkList()
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (b *Babeld) LinkSync(target []string) error {
 
 	for _, link := range target {
 		if !stringIn(current, link) {
-			err = b.LinkAdd(link)
+			err = b.LinkAdd(link, conf)
 			if err != nil {
 				return err
 			}
