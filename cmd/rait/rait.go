@@ -40,6 +40,12 @@ var babeldFlags = append(commonFlags,
 		Usage:   "network type of babeld control socket, unix or tcp",
 		Aliases: []string{"n"},
 		Value:   "unix",
+	},
+	&cli.StringFlag{
+		Name:    "interface",
+		Usage:   "babeld interface configuration line",
+		Aliases: []string{"i"},
+		Value:   "type tunnel link-quality true split-horizon false rxcost 32 hello-interval 20 max-rtt-penalty 1024 rtt-max 1024",
 	})
 
 var commonBeforeFunc = func(ctx *cli.Context) error {
@@ -144,7 +150,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return ba.LinkSync(links)
+					return ba.LinkSync(links, context.String("interface"))
 				},
 			}},
 		}},
