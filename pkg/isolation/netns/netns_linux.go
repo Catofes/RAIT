@@ -1,9 +1,10 @@
-package isolation
+package netns
 
 import (
 	"fmt"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	"gitlab.com/NickCao/RAIT/v2/pkg/isolation"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -16,7 +17,7 @@ import (
 // TODO: clean up all these mess
 
 func init() {
-	Register("netns", NewNetnsIsolation)
+	isolation.Register("netns", NewNetnsIsolation)
 }
 
 // NetnsIsolation is the recommended implementation as by the wireguard developers
@@ -30,14 +31,14 @@ type NetnsIsolation struct {
 // the creation of netns is handled internally
 // the links and sockets will be created in the transit namespace
 // and the links will be moved into the interface namespace
-func NewNetnsIsolation(transitNamespace, interfaceNamespace string) (Isolation, error) {
+func NewNetnsIsolation(transitNamespace, interfaceNamespace string) (isolation.Isolation, error) {
 	return &NetnsIsolation{
 		transitNamespace:   transitNamespace,
 		interfaceNamespace: interfaceNamespace,
 	}, nil
 }
 
-func (i *NetnsIsolation) LinkEnsure(attrs *LinkAttrs, config wgtypes.Config) (err error) {
+func (i *NetnsIsolation) LinkEnsure(attrs *isolation.LinkAttrs, config wgtypes.Config) (err error) {
 	interfaceHandle, err := NetlinkFromName(i.interfaceNamespace)
 	if err != nil {
 		return err
@@ -107,7 +108,7 @@ func (i *NetnsIsolation) LinkEnsure(attrs *LinkAttrs, config wgtypes.Config) (er
 	}
 
 	if len(addrs) == 0 {
-		err = interfaceHandle.AddrAdd(link, misc.LinkLocalAddr())
+		err = interfaceHandle.AddrAdd(link, misc.LLAddr())
 		if err != nil {
 			_ = interfaceHandle.LinkDel(link)
 			return fmt.Errorf("failed to add addr to link %s: %w", attrs.Name, err)
@@ -152,7 +153,7 @@ func (i *NetnsIsolation) LinkEnsure(attrs *LinkAttrs, config wgtypes.Config) (er
 	return err
 }
 
-func (i *NetnsIsolation) LinkAbsent(attrs *LinkAttrs) error {
+func (i *NetnsIsolation) LinkAbsent(attrs *isolation.LinkAttrs) error {
 	interfaceHandle, err := NetlinkFromName(i.interfaceNamespace)
 	if err != nil {
 		return err
@@ -172,7 +173,7 @@ func (i *NetnsIsolation) LinkAbsent(attrs *LinkAttrs) error {
 	return nil
 }
 
-func (i *NetnsIsolation) LinkList() ([]*LinkAttrs, error) {
+func (i *NetnsIsolation) LinkList() ([]*isolation.LinkAttrs, error) {
 	interfaceHandle, err := NetlinkFromName(i.interfaceNamespace)
 	if err != nil {
 		return nil, err
@@ -184,10 +185,10 @@ func (i *NetnsIsolation) LinkList() ([]*LinkAttrs, error) {
 		return nil, fmt.Errorf("failed to list link: %w", err)
 	}
 
-	var list []*LinkAttrs
+	var list []*isolation.LinkAttrs
 	for _, link := range rawList {
 		if link.Type() == "wireguard" {
-			list = append(list, &LinkAttrs{
+			list = append(list, &isolation.LinkAttrs{
 				Name:  link.Attrs().Name,
 				MTU:   link.Attrs().MTU,
 				Group: int(link.Attrs().Group),
