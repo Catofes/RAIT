@@ -42,22 +42,31 @@ babeld {
 peers = "/etc/rait/peers.conf"
 ```
 
-```toml
+```hcl
 # /etc/rait/peers.conf
-[[Peers]]
-PublicKey = "+Y23l1qr9oEM4WlqPvp4IG2TPXdNCa11twipDvOHT3w=" # required, the public key of the peer
-SendPort = 50221 # required, the sending port of the peer
-Endpoint = "example.org" # the endpoint ip address or resolvable hostname
-AddressFamily = "ip4" # required, [ip4]/ip6, the address family of this node
-[[Peers]]
-PublicKey = "+Y23l1qr9oEM4WlqPvp4IG2TPXdNCa11twipDvOHT3w="
-SendPort = 50160
-AddressFamily = "ip6"
-[[Peers]]
-PublicKey = "+Y23l1qr9oEM4WlqPvp4IG2TPXdNCa11twipDvOHT3w="
-SendPort = 50047
-Endpoint = "1.1.1.1"
-AddressFamily = "ip4"
+peers {
+  public_key     = "rCOdBo/VRxc2ulTM3TzQ9UmHYRAGR4mkN15rs7rmMiY="
+  address_family = "ip4"
+  send_port      = 50180
+  endpoint       = "1.1.1.1"
+}
+peers {
+  public_key     = "GMi1N+cqxgplru+WvQgAYFmC1SdpFljptGbLS2gL80g="
+  address_family = "ip6"
+  send_port      = 59153
+  endpoint       = "2402:f000::"
+}
+peers {
+  public_key     = "gyD2CFRdR0RD2tytyPsGTr/A0gf1eSs4KMC6FokHGys="
+  address_family = "ip4"
+  send_port      = 46932
+  endpoint       = "example.net"
+}
+peers {
+  public_key     = "SPGew86c7s8bBgu1NZaYRzs1fyL5ybj4yA3kIlr7Bjk="
+  address_family = "ip4"
+  send_port      = 50999
+}
 ```
 
 #### URL
