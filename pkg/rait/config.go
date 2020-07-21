@@ -66,7 +66,7 @@ func NewPeers(path string, pubkey string) ([]Peer, error) {
 	var peers struct {
 		Peers []Peer `hcl:"peers,block"`
 	}
-	if err := misc.UnmarshalTOML(path, &peers); err != nil {
+	if err := misc.UnmarshalHCL(path, &peers); err != nil {
 		return nil, err
 	}
 
