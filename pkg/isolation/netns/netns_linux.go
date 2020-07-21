@@ -4,145 +4,144 @@ import (
 	"fmt"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	"gitlab.com/NickCao/RAIT/v2/pkg/isolation"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"runtime"
 	"sync"
 )
 
-// TODO: clean up all these mess
-
-func init() {
-	isolation.Register("netns", NewNetnsIsolation)
-}
-
 // NetnsIsolation is the recommended implementation as by the wireguard developers
 // It keeps the wireguard sockets and interfaces in different netns to facilitate isolation
 type NetnsIsolation struct {
-	transitNamespace   string
-	interfaceNamespace string
+	group   int
+	transit string
+	target  string
 }
 
 // NewNetnsIsolation takes two arguments: transit and interface namespace
 // the creation of netns is handled internally
 // the links and sockets will be created in the transit namespace
 // and the links will be moved into the interface namespace
-func NewNetnsIsolation(transitNamespace, interfaceNamespace string) (isolation.Isolation, error) {
+func NewNetnsIsolation(group int, transit, target string) (*NetnsIsolation, error) {
 	return &NetnsIsolation{
-		transitNamespace:   transitNamespace,
-		interfaceNamespace: interfaceNamespace,
+		group:   group,
+		transit: transit,
+		target:  target,
 	}, nil
 }
 
-func (i *NetnsIsolation) LinkEnsure(attrs *isolation.LinkAttrs, config wgtypes.Config) (err error) {
-	interfaceHandle, err := NetlinkFromName(i.interfaceNamespace)
+func (i *NetnsIsolation) LinkEnsure(attrs misc.Link) (err error) {
+	targetHandle, err := NewNetlink(i.target)
 	if err != nil {
 		return err
 	}
-	defer interfaceHandle.Delete()
+	defer targetHandle.Delete()
 
-	interfaceNetns, err := NetNSFromName(i.interfaceNamespace)
+	targetNetns, err := NewNetns(i.target)
 	if err != nil {
 		return err
 	}
-	defer interfaceNetns.Close()
+	defer targetNetns.Close()
 
 	var link netlink.Link
-	link, err = interfaceHandle.LinkByName(attrs.Name)
+	link, err = targetHandle.LinkByName(attrs.Name)
 	if err == nil {
 		zap.S().Debugf("link %s already exists, skipping creation", attrs.Name)
 	} else if _, ok := err.(netlink.LinkNotFoundError); !ok {
-		return fmt.Errorf("failed to get link %s: %w", attrs.Name, err)
+		return fmt.Errorf("failed to get link %s: %s", attrs.Name, err)
 	} else {
-		transitHandle, err := NetlinkFromName(i.transitNamespace)
+		transitHandle, err := NewNetlink(i.transit)
 		if err != nil {
 			return err
 		}
 		transitHandle.Delete()
 
-		link = &netlink.Wireguard{LinkAttrs: netlink.LinkAttrs{Name: attrs.Name}}
+		link = &netlink.Wireguard{LinkAttrs: netlink.LinkAttrs{Name: attrs.Name, MTU: attrs.MTU, Group: uint32(i.group)}}
 		err = transitHandle.LinkAdd(link)
 		if err != nil {
-			return fmt.Errorf("failed to create link %s: %w", attrs.Name, err)
+			return fmt.Errorf("failed to create link %s: %s", attrs.Name, err)
 		}
 		zap.S().Debugf("link %s created in transit namespace", attrs.Name)
 
-		err = transitHandle.LinkSetNsFd(link, int(interfaceNetns))
+		err = transitHandle.LinkSetNsFd(link, int(targetNetns))
 		if err != nil {
 			_ = transitHandle.LinkDel(link)
-			return fmt.Errorf("failed to move link %s: %w", attrs.Name, err)
+			return fmt.Errorf("failed to move link %s: %s", attrs.Name, err)
 		}
 		zap.S().Debugf("link %s moved into interface namespace", attrs.Name)
 	}
 
-	err = interfaceHandle.LinkSetMTU(link, attrs.MTU)
+	err = targetHandle.LinkSetMTU(link, attrs.MTU)
 	if err != nil {
-		_ = interfaceHandle.LinkDel(link)
-		return fmt.Errorf("failed to set mtu on link %s: %w", attrs.Name, err)
+		_ = targetHandle.LinkDel(link)
+		return fmt.Errorf("failed to set mtu on link %s: %s", attrs.Name, err)
 	}
 	zap.S().Debugf("link %s mtu set to %d", attrs.Name, attrs.MTU)
 
-	err = interfaceHandle.LinkSetGroup(link, attrs.Group)
+	err = targetHandle.LinkSetGroup(link, i.group)
 	if err != nil {
-		_ = interfaceHandle.LinkDel(link)
-		return fmt.Errorf("failed to set group on link %s: %w", attrs.Name, err)
+		_ = targetHandle.LinkDel(link)
+		return fmt.Errorf("failed to set group on link %s: %s", attrs.Name, err)
 	}
-	zap.S().Debugf("link %s ifgroup set to %d", attrs.Name, attrs.Group)
+	zap.S().Debugf("link %s ifgroup set to %d", attrs.Name, i.group)
 
-	err = interfaceHandle.LinkSetUp(link)
+	err = targetHandle.LinkSetUp(link)
 	if err != nil {
-		_ = interfaceHandle.LinkDel(link)
-		return fmt.Errorf("failed to set up link %s: %w", attrs.Name, err)
+		_ = targetHandle.LinkDel(link)
+		return fmt.Errorf("failed to set up link %s: %s", attrs.Name, err)
 	}
 	zap.S().Debugf("link %s set up", attrs.Name)
 
 	var addrs []netlink.Addr
-	addrs, err = interfaceHandle.AddrList(link, unix.AF_INET6)
+	addrs, err = targetHandle.AddrList(link, unix.AF_INET6)
 	if err != nil {
-		_ = interfaceHandle.LinkDel(link)
-		return fmt.Errorf("failed to list addr on link %s: %w", attrs.Name, err)
+		_ = targetHandle.LinkDel(link)
+		return fmt.Errorf("failed to list addr on link %s: %s", attrs.Name, err)
 	}
 
-	if len(addrs) == 0 {
-		err = interfaceHandle.AddrAdd(link, misc.LLAddr())
-		if err != nil {
-			_ = interfaceHandle.LinkDel(link)
-			return fmt.Errorf("failed to add addr to link %s: %w", attrs.Name, err)
+	for _, addr := range addrs {
+		if addr.IP.IsLinkLocalUnicast() {
+			zap.S().Debugf("link %s already has lladdr, skipping configuration", attrs.Name)
+			goto llfound
 		}
-		zap.S().Debugf("link %s linklocal address configured", attrs.Name)
-	} else {
-		zap.S().Debugf("link %s already has address configured, skipping configuration", attrs.Name)
 	}
+
+	err = targetHandle.AddrAdd(link, misc.NewLLAddr())
+	if err != nil {
+		_ = targetHandle.LinkDel(link)
+		return fmt.Errorf("failed to add addr to link %s: %s", attrs.Name, err)
+	}
+	zap.S().Debugf("link %s linklocal address configured", attrs.Name)
+
+llfound:
 
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(1)
 	go func() {
 		defer waitGroup.Done()
 		runtime.LockOSThread()
-		err = netns.Set(interfaceNetns)
+		err = netns.Set(targetNetns)
 		if err != nil {
-			_ = interfaceHandle.LinkDel(link)
-			err = fmt.Errorf("failed to move into netns: %w", err)
+			_ = targetHandle.LinkDel(link)
+			err = fmt.Errorf("failed to move into netns: %s", err)
 			return
 		}
 
 		var wg *wgctrl.Client
 		wg, err = wgctrl.New()
 		if err != nil {
-			_ = interfaceHandle.LinkDel(link)
-			err = fmt.Errorf("failed to get wireguard control socket: %w", err)
+			_ = targetHandle.LinkDel(link)
+			err = fmt.Errorf("failed to get wireguard control socket: %s", err)
 			return
 		}
 		defer wg.Close()
 
-		err = wg.ConfigureDevice(attrs.Name, config)
+		err = wg.ConfigureDevice(attrs.Name, attrs.Config)
 		if err != nil {
-			_ = interfaceHandle.LinkDel(link)
-			err = fmt.Errorf("failed to configure wireguard interface %s: %w", attrs.Name, err)
+			_ = targetHandle.LinkDel(link)
+			err = fmt.Errorf("failed to configure wireguard interface %s: %s", attrs.Name, err)
 			return
 		}
 		zap.S().Debugf("link %s wireguard configuration set", attrs.Name)
@@ -153,45 +152,44 @@ func (i *NetnsIsolation) LinkEnsure(attrs *isolation.LinkAttrs, config wgtypes.C
 	return err
 }
 
-func (i *NetnsIsolation) LinkAbsent(attrs *isolation.LinkAttrs) error {
-	interfaceHandle, err := NetlinkFromName(i.interfaceNamespace)
+func (i *NetnsIsolation) LinkAbsent(attrs misc.Link) error {
+	targetHandle, err := NewNetlink(i.target)
 	if err != nil {
 		return err
 	}
-	defer interfaceHandle.Delete()
+	defer targetHandle.Delete()
 
-	link, err := interfaceHandle.LinkByName(attrs.Name)
+	link, err := targetHandle.LinkByName(attrs.Name)
 	if err != nil {
-		return fmt.Errorf("failed to get link %s: %w", attrs.Name, err)
+		return fmt.Errorf("failed to get link %s: %s", attrs.Name, err)
 	}
 
-	err = interfaceHandle.LinkDel(link)
+	err = targetHandle.LinkDel(link)
 	if err != nil {
-		return fmt.Errorf("failed to delete link %s: %w", attrs.Name, err)
+		return fmt.Errorf("failed to delete link %s: %s", attrs.Name, err)
 	}
 	zap.S().Debugf("link %s removed", attrs.Name)
 	return nil
 }
 
-func (i *NetnsIsolation) LinkList() ([]*isolation.LinkAttrs, error) {
-	interfaceHandle, err := NetlinkFromName(i.interfaceNamespace)
+func (i *NetnsIsolation) LinkList() ([]misc.Link, error) {
+	targetHandle, err := NewNetlink(i.target)
 	if err != nil {
 		return nil, err
 	}
-	defer interfaceHandle.Delete()
+	defer targetHandle.Delete()
 
-	rawList, err := interfaceHandle.LinkList()
+	rawList, err := targetHandle.LinkList()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list link: %w", err)
+		return nil, fmt.Errorf("failed to list link: %s", err)
 	}
 
-	var list []*isolation.LinkAttrs
+	var list []misc.Link
 	for _, link := range rawList {
-		if link.Type() == "wireguard" {
-			list = append(list, &isolation.LinkAttrs{
-				Name:  link.Attrs().Name,
-				MTU:   link.Attrs().MTU,
-				Group: int(link.Attrs().Group),
+		if link.Type() == "wireguard" && int(link.Attrs().Group) == i.group {
+			list = append(list, misc.Link{
+				Name: link.Attrs().Name,
+				MTU:  link.Attrs().MTU,
 			})
 		}
 	}

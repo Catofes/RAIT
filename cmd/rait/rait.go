@@ -3,22 +3,22 @@ package main
 import (
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/NickCao/RAIT/v2/pkg/babeld"
+	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 	"gitlab.com/NickCao/RAIT/v2/pkg/rait"
 	"go.uber.org/zap"
 	"os"
+	"strings"
 )
 
 var Version string
-var ra *rait.RAIT
-var ba *babeld.Babeld
+var r *rait.RAIT
 
 var commonFlags = []cli.Flag{
-	&cli.StringSliceFlag{
+	&cli.StringFlag{
 		Name:    "config",
-		Usage:   "path to configuration file, can be specified multiple times",
+		Usage:   "path to configuration file",
 		Aliases: []string{"c"},
-		Value:   cli.NewStringSlice("/etc/rait/rait.conf"),
+		Value:   "/etc/rait/rait.conf",
 	},
 	&cli.BoolFlag{
 		Name:    "debug",
@@ -26,33 +26,16 @@ var commonFlags = []cli.Flag{
 		Aliases: []string{"d"},
 		Value:   false,
 	},
+	&cli.BoolFlag{
+		Name:    "bind",
+		Usage:   "enable wireguard bind support",
+		Aliases: []string{"b"},
+		Value:   false,
+	},
 }
 
-var babeldFlags = append(commonFlags,
-	&cli.StringFlag{
-		Name:    "babeld",
-		Usage:   "path to babeld control socket",
-		Aliases: []string{"b"},
-		Value:   "/run/babeld.ctl",
-	},
-	&cli.StringFlag{
-		Name:    "network",
-		Usage:   "network type of babeld control socket, unix or tcp",
-		Aliases: []string{"n"},
-		Value:   "unix",
-	},
-	&cli.StringFlag{
-		Name:    "interface",
-		Usage:   "babeld interface configuration line",
-		Aliases: []string{"i"},
-		Value:   "type tunnel link-quality true split-horizon false rxcost 32 hello-interval 20 max-rtt-penalty 1024 rtt-max 1024",
-	})
-
 var commonBeforeFunc = func(ctx *cli.Context) error {
-	ba = babeld.NewBabeld(ctx.String("network"), ctx.String("babeld"))
-
-	var err error
-	var logger *zap.Logger
+	misc.Bind = ctx.Bool("bind")
 
 	config := zap.NewDevelopmentConfig()
 	config.DisableStacktrace = true
@@ -62,14 +45,14 @@ var commonBeforeFunc = func(ctx *cli.Context) error {
 	case false:
 		config.Level.SetLevel(zap.InfoLevel)
 	}
-	logger, err = config.Build()
 
+	logger, err := config.Build()
 	if err != nil {
 		return err
 	}
 	zap.ReplaceGlobals(logger)
 
-	ra, err = rait.RAITFromPaths(ctx.StringSlice("config"))
+	r, err = rait.NewRAIT(ctx.String("config"))
 	if err != nil {
 		return err
 	}
@@ -90,7 +73,7 @@ func main() {
 			Flags:     commonFlags,
 			Before:    commonBeforeFunc,
 			Action: func(ctx *cli.Context) error {
-				return ra.SyncInterfaces(true)
+				return r.Sync(true)
 			},
 		}, {
 			Name:      "down",
@@ -100,20 +83,22 @@ func main() {
 			Flags:     commonFlags,
 			Before:    commonBeforeFunc,
 			Action: func(ctx *cli.Context) error {
-				return ra.SyncInterfaces(false)
+				return r.Sync(false)
 			},
 		}, {
-			Name:      "render",
-			Aliases:   []string{"r"},
-			Usage:     "render template based on the desired state of the tunnels",
-			UsageText: "rait render [options] SRC DEST",
+			Name:      "list",
+			Aliases:   []string{"l"},
+			Usage:     "list the tunnels",
+			UsageText: "rait list [options]",
 			Flags:     commonFlags,
 			Before:    commonBeforeFunc,
 			Action: func(ctx *cli.Context) error {
-				if ctx.Args().Len() != 2 {
-					return fmt.Errorf("render expects two arguments, SRC and DEST")
+				list, err := r.List()
+				if err != nil {
+					return err
 				}
-				return ra.RenderTemplate(ctx.Args().Get(0), ctx.Args().Get(1))
+				_, err = fmt.Println(strings.Join(misc.LinkString(list), " "))
+				return err
 			},
 		}, {
 			Name:      "babeld",
@@ -125,32 +110,29 @@ func main() {
 				Aliases:   []string{"l"},
 				Usage:     "list babeld interfaces",
 				UsageText: "rait babeld list [options]",
-				Flags:     babeldFlags,
+				Flags:     commonFlags,
 				Before:    commonBeforeFunc,
 				Action: func(context *cli.Context) error {
-					links, err := ba.LinkList()
+					links, err := r.Babeld.LinkList()
 					if err != nil {
 						return err
 					}
-
-					for _, link := range links {
-						fmt.Println(link)
-					}
-					return nil
+					_, err = fmt.Println(strings.Join(links, " "))
+					return err
 				},
 			}, {
 				Name:      "sync",
 				Aliases:   []string{"s"},
 				Usage:     "sync babeld interfaces",
 				UsageText: "rait babeld sync [options]",
-				Flags:     babeldFlags,
+				Flags:     commonFlags,
 				Before:    commonBeforeFunc,
 				Action: func(context *cli.Context) error {
-					links, err := ra.ListInterfaceName()
+					links, err := r.List()
 					if err != nil {
 						return err
 					}
-					return ba.LinkSync(links, context.String("interface"))
+					return r.Babeld.LinkSync(misc.LinkString(links))
 				},
 			}},
 		}},

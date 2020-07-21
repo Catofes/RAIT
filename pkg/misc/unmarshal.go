@@ -23,7 +23,7 @@ func UnmarshalHCL(path string, v interface{}) error {
 
 	err = hclsimple.Decode("source.hcl", data, nil, v)
 	if err != nil {
-		return fmt.Errorf("failed to decode hcl: %s: %w", path, err)
+		return fmt.Errorf("failed to decode hcl: %s: %s", path, err)
 	}
 	return nil
 }
@@ -39,7 +39,7 @@ func UnmarshalTOML(path string, v interface{}) error {
 
 	_, err = toml.DecodeReader(source, v)
 	if err != nil {
-		return fmt.Errorf("failed to decode toml: %s: %w", path, err)
+		return fmt.Errorf("failed to decode toml: %s: %s", path, err)
 	}
 	return nil
 }

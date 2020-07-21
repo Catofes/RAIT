@@ -8,12 +8,12 @@ import (
 	"os"
 )
 
-// WriteCloserFromPath returns a WriteCloser from the given path
+// NewWriteCloser returns a WriteCloser from the given path
 // path can be a file system path, or "-" for stdout
-func WriteCloserFromPath(path string) (io.WriteCloser, error) {
+func NewWriteCloser(path string) (io.WriteCloser, error) {
 	parsed, err := url.Parse(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse path: %s: %w", path, err)
+		return nil, fmt.Errorf("failed to parse path: %s: %s", path, err)
 	}
 	switch parsed.Scheme {
 	case "":
@@ -22,7 +22,7 @@ func WriteCloserFromPath(path string) (io.WriteCloser, error) {
 		}
 		file, err := os.Create(path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create filesystem path: %s: %w", path, err)
+			return nil, fmt.Errorf("failed to create filesystem path: %s: %s", path, err)
 		}
 		return file, nil
 	default:
@@ -30,18 +30,18 @@ func WriteCloserFromPath(path string) (io.WriteCloser, error) {
 	}
 }
 
-// ReadCloserFromPath returns a ReadCloser from the given path
+// NewReadCloser returns a ReadCloser from the given path
 // path can be a file system path, a http url, or "-" for stdin
-func ReadCloserFromPath(path string) (io.ReadCloser, error) {
+func NewReadCloser(path string) (io.ReadCloser, error) {
 	parsed, err := url.Parse(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse path: %s: %w", path, err)
+		return nil, fmt.Errorf("failed to parse path: %s: %s", path, err)
 	}
 	switch parsed.Scheme {
 	case "http", "https":
 		resp, err := http.Get(path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to make http request: %s: %w", path, err)
+			return nil, fmt.Errorf("failed to make http request: %s: %s", path, err)
 		}
 		return resp.Body, nil
 	case "":
@@ -50,7 +50,7 @@ func ReadCloserFromPath(path string) (io.ReadCloser, error) {
 		}
 		file, err := os.Open(path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open filesystem path: %s: %w", path, err)
+			return nil, fmt.Errorf("failed to open filesystem path: %s: %s", path, err)
 		}
 		return file, nil
 	default:

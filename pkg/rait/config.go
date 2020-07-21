@@ -1,49 +1,81 @@
 package rait
 
 import (
-	"fmt"
-	"github.com/go-playground/validator/v10"
 	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
 )
 
-// Instance is at the heart of rait
-// it serves as the single source of truth for subsequent configuration of wireguard tunnels
-type Instance struct {
-	PrivateKey    string `validate:"required,base64"`          // required, the private key of current node
-	AddressFamily string `validate:"required,oneof=ip4 ip6"`   // required, [ip4]/ip6, the address family of current node
-	SendPort      int    `validate:"required,min=1,max=65535"` // required, the sending (destination) port of wireguard sockets
-	BindAddress   string `validate:"omitempty,ip"`             // the local address for wireguard sockets to bind to
-
-	InterfacePrefix   string `validate:"required"`                    // [rait], the common prefix to name the wireguard interfaces
-	InterfaceGroup    int    `validate:"min=0,max=2147483647"`        // [54], the ifgroup for the wireguard interfaces
-	MTU               int    `validate:"required,min=1280,max=65535"` // [1400], the MTU of the wireguard interfaces
-	FwMark            int    `validate:"min=0,max=4294967295"`        // [0x36], the fwmark on packets sent by wireguard sockets
-	DynamicListenPort bool   // false, use dynamic listen ports instead of pre-defined ones
-
-	Isolation          string `validate:"required,oneof=netns vrf"` // [netns]/vrf, the isolation method to separate overlay from underlay
-	InterfaceNamespace string // the netns or vrf to move wireguard interface into
-	TransitNamespace   string // the netns or vrf to create wireguard sockets in
-	// The creation of netns is handled automatically, while the creation of vrf must be done manually
-
-	Peers string // [/etc/rait/peers.conf], the url of the peer list
+type RAIT struct {
+	PrivateKey string      `hcl:"private_key,attr"` // wireguard private key
+	Transport  []Transport `hcl:"transport,block"`  // underlying transport for wireguard socket
+	Isolation  *Isolation  `hcl:"isolation,block"`  // separation of underlay and overlay
+	Babeld     *Babeld     `hcl:"babeld,block"`     // integration with babeld
+	Peers      string      `hcl:"peers,attr"`       // list of peers
 }
 
-func InstanceFromPath(path string) (*Instance, error) {
-	var instance = Instance{
-		AddressFamily:     "ip4",
-		InterfacePrefix:   "rait",
-		InterfaceGroup:    54,
-		MTU:               1400,
-		FwMark:            0x36,
-		DynamicListenPort: false,
-		Isolation:         "netns",
-		Peers:             "/etc/rait/peers.conf",
+type Transport struct {
+	AddressFamily     string `hcl:"address_family,attr"`
+	SendPort          int    `hcl:"send_port,attr"`
+	MTU               int    `hcl:"mtu,attr"`
+	IFPrefix          string `hcl:"ifprefix,attr"`
+	BindAddress       string `hcl:"bind_addr,optional"`
+	FwMark            int    `hcl:"fwmark,optional"`
+	DynamicListenPort bool   `hcl:"dynamic_port,optional"`
+}
+
+type Isolation struct {
+	Type    string `hcl:"type,attr"`
+	IFGroup int    `hcl:"ifgroup,attr"`
+	Transit string `hcl:"transit,optional"`
+	Target  string `hcl:"target,optional"`
+}
+
+type Babeld struct {
+	SocketType string `hcl:"socket_type,optional"`
+	SocketAddr string `hcl:"socket_addr,optional"`
+	Param      string `hcl:"param,optional"`
+	ExtraCmd   string `hcl:"extra_cmd,optional"`
+}
+
+func NewRAIT(path string) (*RAIT, error) {
+	var r = RAIT{
+		Isolation: &Isolation{
+			Type:    "netns",
+			IFGroup: 54,
+		},
+		Babeld: &Babeld{
+			SocketType: "unix",
+			SocketAddr: "/run/babeld.ctl",
+			Param:      "type tunnel link-quality true split-horizon false rxcost 32 hello-interval 20 max-rtt-penalty 1024 rtt-max 1024",
+		},
+		Peers: "/etc/rait/peers.conf",
 	}
-	if err := misc.DecodeTOMLFromPath(path, &instance); err != nil {
+	if err := misc.UnmarshalHCL(path, &r); err != nil {
 		return nil, err
 	}
-	if err := validator.New().Struct(&instance); err != nil {
-		return nil, fmt.Errorf("failed to validate rait config %s: %w", path, err)
+	return &r, nil
+}
+
+type Peer struct {
+	PublicKey     string `hcl:"public_key,attr"`
+	AddressFamily string `hcl:"address_family,attr"`
+	SendPort      int    `hcl:"send_port,attr"`
+	Endpoint      string `hcl:"endpoint,optional"`
+}
+
+func NewPeers(path string, pubkey string) ([]Peer, error) {
+	var peers struct {
+		Peers []Peer `hcl:"peers,block"`
 	}
-	return &instance, nil
+	if err := misc.UnmarshalTOML(path, &peers); err != nil {
+		return nil, err
+	}
+
+	n := 0
+	for _, x := range peers.Peers {
+		if x.PublicKey != pubkey {
+			peers.Peers[n] = x
+			n++
+		}
+	}
+	return peers.Peers[:n], nil
 }

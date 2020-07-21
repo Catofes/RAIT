@@ -14,10 +14,13 @@
       <w>ifgroup</w>
       <w>ifname</w>
       <w>ifnames</w>
+      <w>ifparam</w>
       <w>ifprefix</w>
       <w>iproute</w>
       <w>libpod</w>
       <w>linklocal</w>
+      <w>lladdr</w>
+      <w>llfound</w>
       <w>maddrs</w>
       <w>miscs</w>
       <w>netlink</w>
@@ -29,6 +32,7 @@
       <w>priv</w>
       <w>privatekey</w>
       <w>proc</w>
+      <w>pubkey</w>
       <w>publickey</w>
       <w>rait</w>
       <w>raitif</w>

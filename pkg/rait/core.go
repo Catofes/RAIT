@@ -8,144 +8,131 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
 	"strconv"
-	"strings"
 )
 
-func (instance *Instance) IsManagedInterface(attrs *isolation.LinkAttrs) bool {
-	return strings.HasPrefix(attrs.Name, instance.InterfacePrefix) && attrs.Group == instance.InterfaceGroup
-}
-
-func (instance *Instance) ListInterfaceName() ([]string, error) {
-	iso, err := isolation.NewIsolation(instance.Isolation, instance.TransitNamespace, instance.InterfaceNamespace)
+func (r *RAIT) List() ([]misc.Link, error) {
+	iso, err := isolation.NewIsolation(r.Isolation.Type, r.Isolation.IFGroup, r.Isolation.Transit, r.Isolation.Target)
 	if err != nil {
 		return nil, err
 	}
 
-	unfiltered, err := iso.LinkList()
+	links, err := iso.LinkList()
 	if err != nil {
 		return nil, err
 	}
-
-	return isolation.LinkString(isolation.LinkFilter(unfiltered, instance.IsManagedInterface)), nil
+	return links, nil
 }
 
-func (instance *Instance) LoadPeers() ([]*Peer, error) {
-	peers, err := PeersFromPath(instance.Peers)
+func (r *RAIT) Load() ([]misc.Link, error) {
+	privKey, err := wgtypes.ParseKey(r.PrivateKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse private key: %s", err)
 	}
 
-	key, err := wgtypes.ParseKey(instance.PrivateKey)
+	peers, err := NewPeers(r.Peers, privKey.PublicKey().String())
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse instance private key: %w", err)
+		return nil, fmt.Errorf("failed to load peers: %s", err)
 	}
 
-	// some in place array filtering magic
-	n := 0
-	for _, x := range peers {
-		if x.AddressFamily == instance.AddressFamily &&
-			x.PublicKey != key.PublicKey().String() {
-			peers[n] = x
-			n++
-		}
-	}
-	peers = peers[:n]
-	return peers, nil
-}
+	var links []misc.Link
+	for _, transport := range r.Transport {
+		transport.AddressFamily = misc.NewAF(transport.AddressFamily)
+		for _, peer := range peers {
+			if transport.AddressFamily != misc.NewAF(peer.AddressFamily) {
+				continue
+			}
 
-func (instance *Instance) InterfaceConfig(peer *Peer) (*isolation.LinkAttrs, *wgtypes.Config, error) {
-	privKey, err := wgtypes.ParseKey(instance.PrivateKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse instance private key: %w", err)
-	}
+			pubKey, err := wgtypes.ParseKey(peer.PublicKey)
+			if err != nil {
+				zap.S().Warnf("failed to parse peer public key: %s", err)
+				continue
+			}
 
-	pubKey, err := wgtypes.ParseKey(peer.PublicKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse peer public key: %w", err)
-	}
+			var endpoint net.IP
+			resolved, err := net.ResolveIPAddr(transport.AddressFamily, peer.Endpoint)
+			if err != nil || resolved.IP == nil {
+				zap.S().Debugf("peer endpoint %s resolve failed in address family %s, falling back to localhost",
+					peer.Endpoint, transport.AddressFamily)
+				switch transport.AddressFamily {
+				case "ip4":
+					endpoint = net.ParseIP("127.0.0.1")
+				default:
+					endpoint = net.ParseIP("::1")
+				}
+			} else {
+				zap.S().Debugf("peer endpoint %s resolved as %s in address family %s",
+					peer.Endpoint, resolved.IP, transport.AddressFamily)
+				endpoint = resolved.IP
+			}
 
-	var endpoint net.IP
-	resolved, err := net.ResolveIPAddr(instance.AddressFamily, peer.Endpoint)
-	if err != nil || resolved.IP == nil {
-		zap.S().Debugf("peer endpoint %s resolve failed in address family %s, falling back to localhost", peer.Endpoint, instance.AddressFamily)
-		switch instance.AddressFamily {
-		case "ip4":
-			endpoint = net.ParseIP("127.0.0.1")
-		case "ip6":
-			endpoint = net.ParseIP("::1")
-		}
-	} else {
-		zap.S().Debugf("peer endpoint %s resolved as %s in address family %s", peer.Endpoint, resolved.IP, instance.AddressFamily)
-		endpoint = resolved.IP
-	}
+			tmpPort := peer.SendPort
+			listenPort := &tmpPort
+			if transport.DynamicListenPort {
+				listenPort = nil
+			}
 
-	listenPort := &peer.SendPort
-	if instance.DynamicListenPort {
-		listenPort = nil
-	}
-
-	return &isolation.LinkAttrs{
-			Name:  instance.InterfacePrefix + strconv.Itoa(peer.SendPort),
-			MTU:   instance.MTU,
-			Group: instance.InterfaceGroup,
-		}, &wgtypes.Config{
-			PrivateKey:   &privKey,
-			ListenPort:   listenPort,
-			FirewallMark: &instance.FwMark,
-			ReplacePeers: true,
-			Peers: []wgtypes.PeerConfig{
-				{
-					PublicKey:    pubKey,
-					Remove:       false,
-					UpdateOnly:   false,
-					PresharedKey: nil,
-					Endpoint: &net.UDPAddr{
-						IP:   endpoint,
-						Port: instance.SendPort,
+			links = append(links, misc.Link{
+				Name: transport.IFPrefix + strconv.Itoa(peer.SendPort),
+				MTU:  transport.MTU,
+				Config: wgtypes.Config{
+					PrivateKey:   &privKey,
+					ListenPort:   listenPort,
+					BindAddress:  misc.ResolveBindAddress(transport.AddressFamily, transport.BindAddress),
+					FirewallMark: &transport.FwMark,
+					ReplacePeers: true,
+					Peers: []wgtypes.PeerConfig{
+						{
+							PublicKey:    pubKey,
+							Remove:       false,
+							UpdateOnly:   false,
+							PresharedKey: nil,
+							Endpoint: &net.UDPAddr{
+								IP:   endpoint,
+								Port: transport.SendPort,
+							},
+							ReplaceAllowedIPs: true,
+							AllowedIPs:        misc.IPNetAll,
+						},
 					},
-					ReplaceAllowedIPs: true,
-					AllowedIPs:        misc.IPNetAll,
 				},
-			},
-		}, nil
+			})
+		}
+	}
+	return links, nil
 }
 
-func (instance *Instance) SyncInterfaces(up bool) error {
-	var peers []*Peer
+func (r *RAIT) Sync(up bool) error {
+	var links []misc.Link
 	var err error
 	if up {
-		peers, err = instance.LoadPeers()
+		links, err = r.Load()
 		if err != nil {
 			return err
 		}
 	}
 
-	iso, err := isolation.NewIsolation(instance.Isolation, instance.TransitNamespace, instance.InterfaceNamespace)
+	iso, err := isolation.NewIsolation(r.Isolation.Type, r.Isolation.IFGroup, r.Isolation.Transit, r.Isolation.Target)
 	if err != nil {
 		return err
 	}
 
-	var targetLinkList []*isolation.LinkAttrs
-	for _, peer := range peers {
-		attrs, config, err := instance.InterfaceConfig(peer)
+	var targetLinkList []misc.Link
+	for _, link := range links {
+		err = iso.LinkEnsure(link)
 		if err != nil {
-			return err
+			zap.S().Warnf("failed to ensure link %s: %s, skipping", link.Name, err)
+			continue
 		}
-		err = iso.LinkEnsure(attrs, *config)
-		if err != nil {
-			return err
-		}
-		targetLinkList = append(targetLinkList, attrs)
+		targetLinkList = append(targetLinkList, link)
 	}
 
-	unfiltered, err := iso.LinkList()
+	currentLinkList, err := iso.LinkList()
 	if err != nil {
 		return err
 	}
-	currentLinkList := isolation.LinkFilter(unfiltered, instance.IsManagedInterface)
 
 	for _, link := range currentLinkList {
-		if !isolation.LinkIn(targetLinkList, link) {
+		if !misc.LinkIn(targetLinkList, link) {
 			err = iso.LinkAbsent(link)
 			if err != nil {
 				return err

@@ -11,23 +11,35 @@ Due to technical limitation of wireguard, namely crypto routing, it struggles to
 
 rait uses two set of configuration files, rait.conf and peers.conf, and they are all in toml format
 
-```toml
+```hcl
 # /etc/rait/rait.conf
-PrivateKey = "+FtC0RrIEV6iIXiNyPZYDhQGWYdqb8Z30G6JB7foGWM=" # required, the private key of current node
-AddressFamily = "ip4" # required, [ip4]/ip6, the address family of current node
-SendPort = 53276 # required, the sending (destination) port of wireguard sockets
-BindAddress = 1.1.1.1 # the local address for wireguard sockets to bind to, has no effect for now
-
-InterfacePrefix = "mesh" # [rait], the common prefix to name the wireguard interfaces
-InterfaceGroup  = 54 # [54], the ifgroup for the wireguard interfaces
-MTU = 1400 # [1400], the MTU of the wireguard interfaces
-FwMark = 54 # [0x36], the fwmark on packets sent by wireguard sockets
-
-Isolation = vrf # [netns]/vrf, the isolation method to separate overlay from underlay
-InterfaceNamespace = "mesh-vrf" # the netns or vrf to move wireguard interface into
-TransitNamespace = "" # the netns or vrf to create wireguard sockets in
-
-Peers string = "https://example.com/peers" # [/etc/rait/peers.conf], the url of the peer list
+private_key = "KJJXmDtAXSrMGuIJVy/2eP65gXm1PTy7vCR/4O/vEEI="
+transport {
+  address_family = "ip4"
+  send_port = 50153
+  mtu = 1420
+  ifprefix = "rait4x"
+  fwmark = 54
+}
+transport {
+  address_family = "ip6"
+  send_port = 50154
+  mtu = 1420
+  ifprefix = "rait6x"
+  fwmark = 54
+  dynamic_port = true
+}
+isolation {
+  type = "netns"
+  ifgroup = 54
+  transit = ""
+  target = "raitns"
+}
+babeld {
+  socket_type = "unix"
+  socket_addr = "/run/babeld.ctl"
+}
+peers = "/etc/rait/peers.conf"
 ```
 
 ```toml
@@ -63,24 +75,4 @@ https://example.com/some/file # http url
 ```bash
 rait up # create or sync the tunnels
 rait down # destroy the tunnels
-rait render <in> <out> # render template based on the desired state of the tunnels
-```
-
-#### Render
-
-The render subcommand gathers information about the wireguard links and the interface itself, and the renders the given liquid template to be used as configuration file of routing daemons. an example for using rait together with babeld is given as bellow.
-
-```
-random-id true
-export-table 254
-kernel-priority 256
-
-default type tunnel link-quality true split-horizon false
-default rxcost 32 hello-interval 20 max-rtt-penalty 1024 rtt-max 1024
-
-{% for i in LinkList %}interface {{ i }}
-{% endfor %}
-redistribute ip dead:beaf:f00::/44 ge 64 le 64 allow
-redistribute local deny
-install ip ::/0 pref-src dead:beaf:f00:ba2::1
 ```
