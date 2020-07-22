@@ -1,6 +1,6 @@
 package rait
 
-import "gitlab.com/NickCao/RAIT/v2/pkg/misc"
+import "gitlab.com/NickCao/RAIT/v3/pkg/misc"
 
 type Peers struct {
 	Peers []Peer `hcl:"peers,block"`

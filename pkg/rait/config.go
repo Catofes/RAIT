@@ -1,7 +1,7 @@
 package rait
 
 import (
-	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
+	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
 )
 
 // RAIT is the model corresponding to rait.conf, for default value of fields, see NewRAIT

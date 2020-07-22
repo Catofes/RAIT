@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
-	"gitlab.com/NickCao/RAIT/v2/pkg/rait"
+	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
+	"gitlab.com/NickCao/RAIT/v3/pkg/rait"
 	"go.uber.org/zap"
 	"os"
 	"strings"

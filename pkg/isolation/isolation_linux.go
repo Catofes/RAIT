@@ -1,7 +1,7 @@
 package isolation
 
 import (
-	"gitlab.com/NickCao/RAIT/v2/pkg/isolation/netns"
+	"gitlab.com/NickCao/RAIT/v3/pkg/isolation/netns"
 )
 
 func NewIsolation(ifgroup int, transit, target string) (Isolation, error) {

@@ -4,7 +4,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclwrite"
-	"gitlab.com/NickCao/RAIT/v2/pkg/rait"
+	"gitlab.com/NickCao/RAIT/v3/pkg/rait"
 	"log"
 	"os"
 )

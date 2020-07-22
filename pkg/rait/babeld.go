@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
+	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
 	"go.uber.org/zap"
 	"io"
 	"net"

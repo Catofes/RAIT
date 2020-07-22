@@ -2,8 +2,8 @@ package rait
 
 import (
 	"fmt"
-	"gitlab.com/NickCao/RAIT/v2/pkg/isolation"
-	"gitlab.com/NickCao/RAIT/v2/pkg/misc"
+	"gitlab.com/NickCao/RAIT/v3/pkg/isolation"
+	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
 	"go.uber.org/zap"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
