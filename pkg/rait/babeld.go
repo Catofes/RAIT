@@ -32,21 +32,17 @@ func (b *Babeld) WriteCommand(command string) (*bytes.Buffer, error) {
 }
 
 func (b *Babeld) LinkList() ([]string, error) {
-	out, err := b.WriteCommand("dump")
+	dump, err := b.WriteCommand("dump")
 	if err != nil {
 		return nil, err
 	}
+	scanner := bufio.NewScanner(dump)
 
 	var interfaces []string
-	scanner := bufio.NewScanner(out)
 	for scanner.Scan() {
 		tokens := strings.Split(scanner.Text(), " ")
-		if tokens[0] != "add" {
-			continue
-		}
-		switch tokens[1] {
-		case "interface":
-			zap.S().Debugf("found babeld interface: %s", scanner.Text())
+		if tokens[0] == "add" && tokens[1] == "interface" {
+			zap.S().Debugf("found babeld interface: %s", tokens[2])
 			interfaces = append(interfaces, tokens[2])
 		}
 	}
@@ -54,11 +50,13 @@ func (b *Babeld) LinkList() ([]string, error) {
 }
 
 func (b *Babeld) LinkAdd(name string) error {
+	zap.S().Debugf("added babeld interface: %s", name)
 	_, err := b.WriteCommand(fmt.Sprintf("interface %s %s", name, b.Param))
 	return err
 }
 
 func (b *Babeld) LinkDel(name string) error {
+	zap.S().Debugf("removed babeld interface: %s", name)
 	_, err := b.WriteCommand(fmt.Sprintf("flush interface %s", name))
 	return err
 }
@@ -87,7 +85,7 @@ func (b *Babeld) LinkSync(target []string) error {
 		}
 	}
 
+	zap.S().Debugf("written babeld command: %s", b.ExtraCmd)
 	_, err = b.WriteCommand(b.ExtraCmd)
 	return err
 }
-

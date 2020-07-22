@@ -10,9 +10,7 @@ import (
 )
 
 func main() {
-	var values struct {
-		Peers []rait.Peer `hcl:"peers,block"`
-	}
+	var values rait.Peers
 	_, err := toml.DecodeReader(os.Stdin, &values)
 	if err != nil {
 		log.Fatal(err)

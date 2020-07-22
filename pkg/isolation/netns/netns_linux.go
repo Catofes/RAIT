@@ -45,34 +45,49 @@ func (i *NetnsIsolation) LinkEnsure(attrs misc.Link) (err error) {
 	}
 	defer targetNetns.Close()
 
-	var link netlink.Link
-	link, err = targetHandle.LinkByName(attrs.Name)
+	transitHandle, err := NewNetlink(i.transit)
+	if err != nil {
+		return err
+	}
+	defer transitHandle.Delete()
+
+	link, err := targetHandle.LinkByName(attrs.Name)
 	if err == nil {
-		zap.S().Debugf("link %s already exists, skipping creation", attrs.Name)
+		if link.Type() == "wireguard" {
+			zap.S().Debugf("link %s already exists, skipping creation", attrs.Name)
+			goto created
+		} else {
+			zap.S().Debugf("link %s already exists but is of wrong type, removing", attrs.Name)
+			goto removal
+		}
 	} else if _, ok := err.(netlink.LinkNotFoundError); !ok {
 		return fmt.Errorf("failed to get link %s: %s", attrs.Name, err)
 	} else {
-		transitHandle, err := NewNetlink(i.transit)
-		if err != nil {
-			return err
-		}
-		transitHandle.Delete()
-
-		link = &netlink.Wireguard{LinkAttrs: netlink.LinkAttrs{Name: attrs.Name, MTU: attrs.MTU, Group: uint32(i.group)}}
-		err = transitHandle.LinkAdd(link)
-		if err != nil {
-			return fmt.Errorf("failed to create link %s: %s", attrs.Name, err)
-		}
-		zap.S().Debugf("link %s created in transit namespace", attrs.Name)
-
-		err = transitHandle.LinkSetNsFd(link, int(targetNetns))
-		if err != nil {
-			_ = transitHandle.LinkDel(link)
-			return fmt.Errorf("failed to move link %s: %s", attrs.Name, err)
-		}
-		zap.S().Debugf("link %s moved into interface namespace", attrs.Name)
+		goto create
 	}
 
+removal:
+	err = targetHandle.LinkDel(link)
+	if err != nil {
+		return fmt.Errorf("failed to remove link %s: %s", attrs.Name, err)
+	}
+
+create:
+	link = &netlink.Wireguard{LinkAttrs: netlink.LinkAttrs{Name: attrs.Name, MTU: attrs.MTU, Group: uint32(i.group)}}
+	err = transitHandle.LinkAdd(link)
+	if err != nil {
+		return fmt.Errorf("failed to create link %s: %s", attrs.Name, err)
+	}
+	zap.S().Debugf("link %s created in transit namespace", attrs.Name)
+
+	err = transitHandle.LinkSetNsFd(link, int(targetNetns))
+	if err != nil {
+		_ = transitHandle.LinkDel(link)
+		return fmt.Errorf("failed to move link %s: %s", attrs.Name, err)
+	}
+	zap.S().Debugf("link %s moved into target namespace", attrs.Name)
+
+created:
 	err = targetHandle.LinkSetMTU(link, attrs.MTU)
 	if err != nil {
 		_ = targetHandle.LinkDel(link)
@@ -116,7 +131,6 @@ func (i *NetnsIsolation) LinkEnsure(attrs misc.Link) (err error) {
 	zap.S().Debugf("link %s linklocal address configured", attrs.Name)
 
 llfound:
-
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(1)
 	go func() {
@@ -148,8 +162,11 @@ llfound:
 	}()
 	waitGroup.Wait()
 
+	if err != nil {
+		return err
+	}
 	zap.S().Debugf("link %s ready", attrs.Name)
-	return err
+	return nil
 }
 
 func (i *NetnsIsolation) LinkAbsent(attrs misc.Link) error {

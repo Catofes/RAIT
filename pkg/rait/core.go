@@ -11,16 +11,11 @@ import (
 )
 
 func (r *RAIT) List() ([]misc.Link, error) {
-	iso, err := isolation.NewIsolation(r.Isolation.Type, r.Isolation.IFGroup, r.Isolation.Transit, r.Isolation.Target)
+	iso, err := isolation.NewIsolation(r.Isolation.IFGroup, r.Isolation.Transit, r.Isolation.Target)
 	if err != nil {
 		return nil, err
 	}
-
-	links, err := iso.LinkList()
-	if err != nil {
-		return nil, err
-	}
-	return links, nil
+	return iso.LinkList()
 }
 
 func (r *RAIT) Load() ([]misc.Link, error) {
@@ -35,9 +30,11 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 	}
 
 	var links []misc.Link
-	for _, transport := range r.Transport {
+	for _, t := range r.Transport {
+		transport := t
 		transport.AddressFamily = misc.NewAF(transport.AddressFamily)
-		for _, peer := range peers {
+		for _, p := range peers {
+			peer := p
 			if transport.AddressFamily != misc.NewAF(peer.AddressFamily) {
 				continue
 			}
@@ -65,13 +62,14 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 				endpoint = resolved.IP
 			}
 
-			tmpPort := peer.SendPort
-			listenPort := &tmpPort
-			if transport.DynamicListenPort {
+			var listenPort *int
+			if transport.RandomPort {
 				listenPort = nil
+			} else {
+				listenPort = &peer.SendPort
 			}
 
-			links = append(links, misc.Link{
+			link := misc.Link{
 				Name: transport.IFPrefix + strconv.Itoa(peer.SendPort),
 				MTU:  transport.MTU,
 				Config: wgtypes.Config{
@@ -95,7 +93,8 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 						},
 					},
 				},
-			})
+			}
+			links = append(links, link)
 		}
 	}
 	return links, nil
@@ -111,7 +110,7 @@ func (r *RAIT) Sync(up bool) error {
 		}
 	}
 
-	iso, err := isolation.NewIsolation(r.Isolation.Type, r.Isolation.IFGroup, r.Isolation.Transit, r.Isolation.Target)
+	iso, err := isolation.NewIsolation(r.Isolation.IFGroup, r.Isolation.Transit, r.Isolation.Target)
 	if err != nil {
 		return err
 	}
@@ -135,7 +134,8 @@ func (r *RAIT) Sync(up bool) error {
 		if !misc.LinkIn(targetLinkList, link) {
 			err = iso.LinkAbsent(link)
 			if err != nil {
-				return err
+				zap.S().Warnf("failed to remove link %s: %s, skipping", link.Name, err)
+				continue
 			}
 		}
 	}
