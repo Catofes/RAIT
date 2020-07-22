@@ -14,11 +14,13 @@ rait uses two set of configuration files, rait.conf and peers.conf, and they are
 ```hcl
 # /etc/rait/rait.conf
 private_key = "KJJXmDtAXSrMGuIJVy/2eP65gXm1PTy7vCR/4O/vEEI="
+peers = "/etc/rait/peers.conf"
 transport {
   address_family = "ip4"
   send_port = 50153
   mtu = 1420
   ifprefix = "rait4x"
+  bind_addr = "1.1.1.1"
   fwmark = 54
 }
 transport {
@@ -27,10 +29,9 @@ transport {
   mtu = 1420
   ifprefix = "rait6x"
   fwmark = 54
-  dynamic_port = true
+  random_port = true
 }
 isolation {
-  type = "netns"
   ifgroup = 54
   transit = ""
   target = "raitns"
@@ -38,8 +39,9 @@ isolation {
 babeld {
   socket_type = "unix"
   socket_addr = "/run/babeld.ctl"
+  param = "type tunnel link-quality true"
+  extra_cmd = "interface host type wireless"
 }
-peers = "/etc/rait/peers.conf"
 ```
 
 ```hcl
@@ -77,11 +79,4 @@ rait accepts the use of url in configuration files or in the command line, the u
 /some/random/path # filesystem path
 - # stdin or stdout, depending on the context
 https://example.com/some/file # http url
-```
-
-#### CLI
-
-```bash
-rait up # create or sync the tunnels
-rait down # destroy the tunnels
 ```
