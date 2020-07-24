@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strconv"
 	"sync"
 )
 
@@ -19,6 +20,11 @@ func NewNetns(name string) (netns.NsHandle, error) {
 	// shortcut for current namespace
 	if name == "" {
 		return netns.Get()
+	}
+
+	// for sinners
+	if pid, err := strconv.Atoi(name); err == nil {
+		return netns.GetFromPid(pid)
 	}
 
 	// shortcut for existing namespace
