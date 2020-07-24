@@ -2,14 +2,11 @@ stages:
   - build
   - test
 
-variables:
-  CGO_ENABLED: 0
-
 build:binary:
   image: golang:latest
   stage: build
   script:
-    - go build -buildmode pie -trimpath -ldflags "-s -w -X main.Version=`git describe --tags`" -o bin/rait cmd/rait/rait.go
+    - make
   artifacts:
     paths:
       - bin/rait
@@ -18,3 +15,4 @@ include:
   - template: Dependency-Scanning.gitlab-ci.yml
   - template: License-Scanning.gitlab-ci.yml
   - template: SAST.gitlab-ci.yml
+
