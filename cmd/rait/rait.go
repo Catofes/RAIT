@@ -101,6 +101,19 @@ func main() {
 				return err
 			},
 		}, {
+			Name:      "pub",
+			Aliases:   []string{"p"},
+			Usage:     "generate public metadata",
+			UsageText: "rait pub [options] DEST",
+			Flags:     commonFlags,
+			Before:    commonBeforeFunc,
+			Action: func(ctx *cli.Context) error {
+				if ctx.Args().Len() != 1 {
+					return fmt.Errorf("expecting 1 argument: DEST")
+				}
+				return r.PublicConf(ctx.Args().First())
+			},
+		}, {
 			Name:      "babeld",
 			Aliases:   []string{"b"},
 			Usage:     "interaction with babeld",

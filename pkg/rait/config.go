@@ -1,7 +1,10 @@
 package rait
 
 import (
+	"github.com/hashicorp/hcl/v2/gohcl"
+	"github.com/hashicorp/hcl/v2/hclwrite"
 	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // RAIT is the model corresponding to rait.conf, for default value of fields, see NewRAIT
@@ -52,4 +55,28 @@ func NewRAIT(path string) (*RAIT, error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+func (r *RAIT) PublicConf(dest string) error {
+	privKey, err := wgtypes.ParseKey(r.PrivateKey)
+	if err != nil {
+		return err
+	}
+	pub := Peer{PublicKey: privKey.PublicKey().String()}
+	for _, t := range r.Transport {
+		transport := t
+		pub.Endpoint = append(pub.Endpoint, Endpoint{
+			AddressFamily: transport.AddressFamily,
+			SendPort:      transport.SendPort,
+		})
+	}
+	f := hclwrite.NewEmptyFile()
+	gohcl.EncodeIntoBody(&pub, f.Body())
+	w, err := misc.NewWriteCloser(dest)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	_, err = w.Write(f.Bytes())
+	return err
 }
