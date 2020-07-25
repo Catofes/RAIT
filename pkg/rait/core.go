@@ -35,66 +35,67 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 		transport.AddressFamily = misc.NewAF(transport.AddressFamily)
 		for _, p := range peers {
 			peer := p
-			if transport.AddressFamily != misc.NewAF(peer.AddressFamily) {
-				continue
-			}
-
 			pubKey, err := wgtypes.ParseKey(peer.PublicKey)
 			if err != nil {
-				zap.S().Warnf("failed to parse peer public key: %s", err)
+				zap.S().Warnf("failed to parse peer public key: %s, ignoring peer", err)
 				continue
 			}
-
-			var endpoint net.IP
-			resolved, err := net.ResolveIPAddr(transport.AddressFamily, peer.Endpoint)
-			if err != nil || resolved.IP == nil {
-				zap.S().Debugf("peer endpoint %s resolve failed in address family %s, falling back to localhost",
-					peer.Endpoint, transport.AddressFamily)
-				switch transport.AddressFamily {
-				case "ip4":
-					endpoint = net.ParseIP("127.0.0.1")
-				default:
-					endpoint = net.ParseIP("::1")
+			for _, e := range peer.Endpoint {
+				endpoint := e
+				if transport.AddressFamily != misc.NewAF(endpoint.AddressFamily) {
+					continue
 				}
-			} else {
-				zap.S().Debugf("peer endpoint %s resolved as %s in address family %s",
-					peer.Endpoint, resolved.IP, transport.AddressFamily)
-				endpoint = resolved.IP
-			}
+				var address net.IP
+				resolved, err := net.ResolveIPAddr(transport.AddressFamily, endpoint.Address)
+				if err != nil || resolved.IP == nil {
+					zap.S().Debugf("peer address %s resolve failed in address family %s, falling back to localhost",
+						endpoint.Address, transport.AddressFamily)
+					switch transport.AddressFamily {
+					case "ip4":
+						address = net.ParseIP("127.0.0.1")
+					default:
+						address = net.ParseIP("::1")
+					}
+				} else {
+					zap.S().Debugf("peer address %s resolved as %s in address family %s",
+						endpoint.Address, resolved.IP, transport.AddressFamily)
+					address = resolved.IP
+				}
 
-			var listenPort *int
-			if transport.RandomPort {
-				listenPort = nil
-			} else {
-				listenPort = &peer.SendPort
-			}
+				var listenPort *int
+				if transport.RandomPort {
+					listenPort = nil
+				} else {
+					listenPort = &endpoint.SendPort
+				}
 
-			link := misc.Link{
-				Name: transport.IFPrefix + strconv.Itoa(peer.SendPort),
-				MTU:  transport.MTU,
-				Config: wgtypes.Config{
-					PrivateKey:   &privKey,
-					ListenPort:   listenPort,
-					BindAddress:  misc.ResolveBindAddress(transport.AddressFamily, transport.BindAddress),
-					FirewallMark: &transport.FwMark,
-					ReplacePeers: true,
-					Peers: []wgtypes.PeerConfig{
-						{
-							PublicKey:    pubKey,
-							Remove:       false,
-							UpdateOnly:   false,
-							PresharedKey: nil,
-							Endpoint: &net.UDPAddr{
-								IP:   endpoint,
-								Port: transport.SendPort,
+				link := misc.Link{
+					Name: transport.IFPrefix + strconv.Itoa(endpoint.SendPort),
+					MTU:  transport.MTU,
+					Config: wgtypes.Config{
+						PrivateKey:   &privKey,
+						ListenPort:   listenPort,
+						BindAddress:  misc.ResolveBindAddress(transport.AddressFamily, transport.BindAddress),
+						FirewallMark: &transport.FwMark,
+						ReplacePeers: true,
+						Peers: []wgtypes.PeerConfig{
+							{
+								PublicKey:    pubKey,
+								Remove:       false,
+								UpdateOnly:   false,
+								PresharedKey: nil,
+								Endpoint: &net.UDPAddr{
+									IP:   address,
+									Port: transport.SendPort,
+								},
+								ReplaceAllowedIPs: true,
+								AllowedIPs:        misc.IPNetAll,
 							},
-							ReplaceAllowedIPs: true,
-							AllowedIPs:        misc.IPNetAll,
 						},
 					},
-				},
+				}
+				links = append(links, link)
 			}
-			links = append(links, link)
 		}
 	}
 	return links, nil
