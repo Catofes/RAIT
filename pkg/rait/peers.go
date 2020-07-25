@@ -11,7 +11,7 @@ type Peers struct {
 type Peer struct {
 	PublicKey string     `hcl:"public_key,attr"`  // mandatory, wireguard public key, base64 encoded
 	Name      string     `hcl:"name,optional"`    // optional, peer human readable name
-	Remarks   string     `hcl:"remarks,optional"` // optional, additional information
+	Remarks   string     `hcl:"remarks,remain"` // optional, additional information
 	Endpoint  []Endpoint `hcl:"endpoint,block"`   // mandatory, node endpoints
 }
 
