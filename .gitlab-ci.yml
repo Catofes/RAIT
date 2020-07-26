@@ -13,6 +13,5 @@ build:binary:
 
 include:
   - template: Dependency-Scanning.gitlab-ci.yml
-  - template: License-Scanning.gitlab-ci.yml
   - template: SAST.gitlab-ci.yml
-
+  - template: Coverage-Fuzzing.gitlab-ci.yml
