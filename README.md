@@ -48,26 +48,24 @@ babeld {
 # /etc/rait/peers.conf
 peers {
   public_key     = "rCOdBo/VRxc2ulTM3TzQ9UmHYRAGR4mkN15rs7rmMiY="
-  address_family = "ip4"
-  send_port      = 50180
-  endpoint       = "1.1.1.1"
+  endpoint {
+    address_family = "ip4"
+    send_port      = 50180
+    address        = "1.1.1.1"
+  }
+  endpoint {
+    address_family = "ip6"
+    send_port      = 50181
+    address        = "example.com"
+  }
 }
 peers {
   public_key     = "GMi1N+cqxgplru+WvQgAYFmC1SdpFljptGbLS2gL80g="
-  address_family = "ip6"
-  send_port      = 59153
-  endpoint       = "2402:f000::"
-}
-peers {
-  public_key     = "gyD2CFRdR0RD2tytyPsGTr/A0gf1eSs4KMC6FokHGys="
-  address_family = "ip4"
-  send_port      = 46932
-  endpoint       = "example.net"
-}
-peers {
-  public_key     = "SPGew86c7s8bBgu1NZaYRzs1fyL5ybj4yA3kIlr7Bjk="
-  address_family = "ip4"
-  send_port      = 50999
+  endpoint {
+    address_family = "ip6"
+    send_port      = 50342
+    address        = "example.net"
+  }
 }
 ```
 
