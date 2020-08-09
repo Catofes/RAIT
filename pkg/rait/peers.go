@@ -1,8 +1,8 @@
 package rait
 
 import (
-	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
 	"github.com/hashicorp/hcl/v2"
+	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
 )
 
 type Peers struct {

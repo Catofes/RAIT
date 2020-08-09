@@ -10,6 +10,7 @@ import (
 // RAIT is the model corresponding to rait.conf, for default value of fields, see NewRAIT
 type RAIT struct {
 	PrivateKey string      `hcl:"private_key,attr"` // mandatory, wireguard private key, base64 encoded
+	Name       string      `hcl:"name,optional"`    // optional, human readable node name
 	Peers      string      `hcl:"peers,attr"`       // mandatory, list of peers, in hcl format
 	Transport  []Transport `hcl:"transport,block"`  // mandatory, underlying transport for wireguard sockets
 	Isolation  *Isolation  `hcl:"isolation,block"`  // optional, params for the separation of underlay and overlay
@@ -21,6 +22,7 @@ type Transport struct {
 	SendPort      int    `hcl:"send_port,attr"`       // mandatory, socket send port
 	MTU           int    `hcl:"mtu,attr"`             // mandatory, interface mtu
 	IFPrefix      string `hcl:"ifprefix,attr"`        // mandatory, interface naming prefix, should not collide between transports
+	Address       string `hcl:"address,optional"`     // optional, public ip address or resolvable domain name
 	BindAddress   string `hcl:"bind_addr,optional"`   // optional, socket bind address, only has effect when -b is set
 	FwMark        int    `hcl:"fwmark,optional"`      // optional, fwmark set on out going packets
 	RandomPort    bool   `hcl:"random_port,optional"` // optional, whether to randomize listen port
@@ -62,11 +64,15 @@ func (r *RAIT) PublicConf(dest string) error {
 	if err != nil {
 		return err
 	}
-	pub := Peer{PublicKey: privKey.PublicKey().String()}
+	pub := Peer{
+		PublicKey: privKey.PublicKey().String(),
+		Name:      r.Name,
+	}
 	for _, t := range r.Transport {
 		transport := t
 		pub.Endpoint = append(pub.Endpoint, Endpoint{
 			AddressFamily: transport.AddressFamily,
+			Address:       transport.Address,
 			SendPort:      transport.SendPort,
 		})
 	}
