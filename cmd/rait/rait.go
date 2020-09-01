@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/urfave/cli/v2"
 	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
 	"gitlab.com/NickCao/RAIT/v3/pkg/rait"
@@ -112,6 +113,30 @@ func main() {
 					return fmt.Errorf("expecting 1 argument: DEST")
 				}
 				return r.PublicConf(ctx.Args().First())
+			},
+		}, {
+			Name:      "remarks",
+			Aliases:   []string{"r"},
+			Usage:     "query remarks from rait.conf",
+			UsageText: "rait query [options] QUERY",
+			Flags:     commonFlags,
+			Before:    commonBeforeFunc,
+			Action: func(ctx *cli.Context) error {
+				if ctx.Args().Len() != 1 {
+					return fmt.Errorf("expecting 1 argument: QUERY")
+				}
+				bc, _ := r.Remarks.Content(&hcl.BodySchema{Blocks: []hcl.BlockHeaderSchema{{Type: "remarks"}}})
+				if len(bc.Blocks.OfType("remarks")) == 0 {
+					return nil
+				}
+				attrs, _ := bc.Blocks.OfType("remarks")[0].Body.JustAttributes()
+				attr, _ := attrs[ctx.Args().First()]
+				if attr == nil {
+					return nil
+				}
+				value, _ := attr.Expr.Value(nil)
+				fmt.Println(value.AsString())
+				return nil
 			},
 		}, {
 			Name:      "babeld",
