@@ -1,6 +1,7 @@
 package rait
 
 import (
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
@@ -15,6 +16,7 @@ type RAIT struct {
 	Transport  []Transport `hcl:"transport,block"`  // mandatory, underlying transport for wireguard sockets
 	Isolation  *Isolation  `hcl:"isolation,block"`  // optional, params for the separation of underlay and overlay
 	Babeld     *Babeld     `hcl:"babeld,block"`     // optional, integration with babeld
+	Remarks    hcl.Body    `hcl:"remarks,remain"`   // optional, additional information
 }
 
 type Transport struct {
