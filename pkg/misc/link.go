@@ -1,14 +1,20 @@
 package misc
 
 import (
+	"github.com/Catofes/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // Link represents a single link managed by isolation
 type Link struct {
-	Name   string
-	MTU    int
-	Config wgtypes.Config
+	Name    string
+	Type    string
+	MTU     int
+	Address string
+	Mac     string
+	VNI     int
+	FDB     []netlink.Neigh
+	Config  wgtypes.Config
 }
 
 func LinkString(links []Link) (stringed []string) {
@@ -30,4 +36,3 @@ func StringIn(list []string, item string) bool {
 	}
 	return false
 }
-

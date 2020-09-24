@@ -1,12 +1,14 @@
 package misc
 
 import (
+	"crypto/md5"
 	"fmt"
-	"github.com/vishvananda/netlink"
-	"go.uber.org/zap"
 	"math/rand"
 	"net"
 	"time"
+
+	"github.com/Catofes/netlink"
+	"go.uber.org/zap"
 )
 
 var Bind bool
@@ -34,6 +36,37 @@ func NewLLAddr() *netlink.Addr {
 	}
 	addr, _ := netlink.ParseAddr("fe80:" + parts + "/64")
 	return addr
+}
+
+func NewLLAddrFromMac(mac net.HardwareAddr) *netlink.Addr {
+	if len(mac) != 6 {
+		return NewLLAddr()
+	}
+	digits := make([]byte, 8)
+	copy(digits[:], mac[:])
+	copy(digits[5:], digits[3:])
+	digits[3] = 0xff
+	digits[4] = 0xfe
+	digits[0] = digits[0] ^ 2
+	var parts string
+	for i := 0; i < 8; i += 2 {
+		parts += ":"
+		parts += fmt.Sprintf("%x", digits[i])
+		parts += fmt.Sprintf("%x", digits[i+1])
+	}
+	addr, _ := netlink.ParseAddr("fe80:" + parts + "/64")
+	return addr
+}
+
+func NewMacFromKey(key string) net.HardwareAddr {
+	hash := md5.Sum([]byte(key))
+	digits := []byte{hash[0], hash[1], hash[2], hash[3], hash[4], hash[5]}
+	digits[0] = digits[0] & 0b11111110
+	return digits
+}
+
+func NewLLAddrFromKey(key string) *netlink.Addr {
+	return NewLLAddrFromMac(NewMacFromKey(key))
 }
 
 func NewAF(af string) string {

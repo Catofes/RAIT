@@ -1,29 +1,33 @@
 package rait
 
 import (
+	"github.com/Catofes/RAIT/pkg/misc"
+
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclwrite"
-	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // RAIT is the model corresponding to rait.conf, for default value of fields, see NewRAIT
 type RAIT struct {
-	PrivateKey string      `hcl:"private_key,attr"` // mandatory, wireguard private key, base64 encoded
-	Name       string      `hcl:"name,optional"`    // optional, human readable node name
-	Peers      string      `hcl:"peers,attr"`       // mandatory, list of peers, in hcl format
-	Transport  []Transport `hcl:"transport,block"`  // mandatory, underlying transport for wireguard sockets
-	Isolation  *Isolation  `hcl:"isolation,block"`  // optional, params for the separation of underlay and overlay
-	Babeld     *Babeld     `hcl:"babeld,block"`     // optional, integration with babeld
-	Remarks    hcl.Body    `hcl:"remarks,remain"`   // optional, additional information
+	Name      string      `hcl:"name,optional"`   // optional, human readable node name
+	Peers     string      `hcl:"peers,attr"`      // mandatory, list of peers, in hcl format
+	Transport []Transport `hcl:"transport,block"` // mandatory, underlying transport for wireguard sockets
+	Isolation *Isolation  `hcl:"isolation,block"` // optional, params for the separation of underlay and overlay
+	Babeld    *Babeld     `hcl:"babeld,block"`    // optional, integration with babeld
+	Remarks   hcl.Body    `hcl:"remarks,remain"`  // optional, additional information
 }
 
 type Transport struct {
-	AddressFamily string `hcl:"address_family,attr"`  // mandatory, socket address family, ip4 or ip6
-	SendPort      int    `hcl:"send_port,attr"`       // mandatory, socket send port
-	MTU           int    `hcl:"mtu,attr"`             // mandatory, interface mtu
-	IFPrefix      string `hcl:"ifprefix,attr"`        // mandatory, interface naming prefix, should not collide between transports
+	PrivateKey    string `hcl:"private_key,attr"`       // mandatory, wireguard private key, base64 encoded
+	AddressFamily string `hcl:"address_family,attr"`    // mandatory, socket address family, ip4 or ip6
+	Port          int    `hcl:"port,attr"`              // mandatory, socket listen port
+	MTU           int    `hcl:"mtu,attr"`               // mandatory, interface mtu
+	IFPrefix      string `hcl:"ifprefix,attr"`          // mandatory, interface naming prefix, should not collide between transports
+	InnerAddress  string `hcl:"inner_address,optional"` //optional, interface inner ip, should not collide in a network
+	Mac           string `hcl:"mac,optional"`
+	VNI           int    `hcl:"vni"`
 	Address       string `hcl:"address,optional"`     // optional, public ip address or resolvable domain name
 	BindAddress   string `hcl:"bind_addr,optional"`   // optional, socket bind address, only has effect when -b is set
 	FwMark        int    `hcl:"fwmark,optional"`      // optional, fwmark set on out going packets
@@ -62,24 +66,29 @@ func NewRAIT(path string) (*RAIT, error) {
 }
 
 func (r *RAIT) PublicConf(dest string) error {
-	privKey, err := wgtypes.ParseKey(r.PrivateKey)
-	if err != nil {
-		return err
-	}
-	pub := Peer{
-		PublicKey: privKey.PublicKey().String(),
-		Name:      r.Name,
-	}
-	for _, t := range r.Transport {
-		transport := t
-		pub.Endpoint = append(pub.Endpoint, Endpoint{
-			AddressFamily: transport.AddressFamily,
-			Address:       transport.Address,
-			SendPort:      transport.SendPort,
-		})
-	}
 	f := hclwrite.NewEmptyFile()
-	gohcl.EncodeIntoBody(&pub, f.Body())
+	pubs := Peers{}
+	pubs.Peers = make([]Peer, 0)
+	for _, t := range r.Transport {
+		privKey, err := wgtypes.ParseKey(t.PrivateKey)
+		if err != nil {
+			return err
+		}
+		pub := Peer{
+			PublicKey: privKey.PublicKey().String(),
+			Name:      r.Name,
+		}
+		pub.Endpoint = Endpoint{
+			AddressFamily: t.AddressFamily,
+			Address:       t.Address,
+			Mac:           t.Mac,
+			InnerAddress:  t.InnerAddress,
+			Port:          t.Port,
+		}
+		//pub.GenerateMac()
+		pubs.Peers = append(pubs.Peers, pub)
+	}
+	gohcl.EncodeIntoBody(&pubs, f.Body())
 	w, err := misc.NewWriteCloser(dest)
 	if err != nil {
 		return err

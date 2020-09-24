@@ -3,15 +3,16 @@ package netns
 import (
 	"errors"
 	"fmt"
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
-	"go.uber.org/zap"
-	"golang.org/x/sys/unix"
 	"os"
 	"path"
 	"runtime"
 	"strconv"
 	"sync"
+
+	"github.com/Catofes/netlink"
+	"github.com/vishvananda/netns"
+	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 )
 
 // NewNetns creates and returns named network namespace,

@@ -1,29 +1,17 @@
-module gitlab.com/NickCao/RAIT/v3
+module github.com/Catofes/RAIT
 
 go 1.14
 
+replace golang.zx2c4.com/wireguard/wgctrl => github.com/NickCao/wgctrl-go v0.0.0-20200721052646-81817b9b0823
+
 require (
 	github.com/BurntSushi/toml v0.3.1
-	github.com/agext/levenshtein v1.2.3 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
-	github.com/google/go-cmp v0.5.2 // indirect
+	github.com/Catofes/netlink v1.2.2
 	github.com/hashicorp/hcl/v2 v2.6.0
-	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/urfave/cli/v2 v2.2.0
-	github.com/vishvananda/netlink v1.1.1-0.20200606011528-cf6600189038
+	github.com/vishvananda/netlink v1.1.1-0.20200606011528-cf6600189038 // indirect
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
-	github.com/zclconf/go-cty v1.6.0 // indirect
-	go.uber.org/zap v1.15.0
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
-	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/mod v0.3.0 // indirect
-	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
-	golang.org/x/sys v0.0.0-20200831180312-196b9ba8737a
-	golang.org/x/text v0.3.3 // indirect
-	golang.org/x/tools v0.0.0-20200723000907-a7c6fd066f6d // indirect
-	golang.zx2c4.com/wireguard v0.0.20200320 // indirect
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
+	go.uber.org/zap v1.16.0
+	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-00010101000000-000000000000
 )
-
-replace golang.zx2c4.com/wireguard/wgctrl => github.com/NickCao/wgctrl-go v0.0.0-20200721052646-81817b9b0823

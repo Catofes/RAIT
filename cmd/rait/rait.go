@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/hashicorp/hcl/v2"
-	"github.com/urfave/cli/v2"
-	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
-	"gitlab.com/NickCao/RAIT/v3/pkg/rait"
-	"go.uber.org/zap"
 	"os"
 	"strings"
+
+	"github.com/Catofes/RAIT/pkg/misc"
+	"github.com/Catofes/RAIT/pkg/rait"
+
+	"github.com/hashicorp/hcl/v2"
+	"github.com/urfave/cli/v2"
+	"go.uber.org/zap"
 )
 
 var Version string
@@ -170,7 +172,13 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return r.Babeld.LinkSync(misc.LinkString(links))
+					target := make([]string, 0)
+					for _, link := range links {
+						if link.Type == "vxlan" {
+							target = append(target, link.Name)
+						}
+					}
+					return r.Babeld.LinkSync(target)
 				},
 			}},
 		}},

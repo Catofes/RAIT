@@ -2,12 +2,14 @@ package rait
 
 import (
 	"fmt"
-	"gitlab.com/NickCao/RAIT/v3/pkg/isolation"
-	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
-	"go.uber.org/zap"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"net"
-	"strconv"
+
+	"github.com/Catofes/RAIT/pkg/isolation"
+	"github.com/Catofes/RAIT/pkg/misc"
+	"github.com/Catofes/netlink"
+	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func (r *RAIT) List() ([]misc.Link, error) {
@@ -19,20 +21,37 @@ func (r *RAIT) List() ([]misc.Link, error) {
 }
 
 func (r *RAIT) Load() ([]misc.Link, error) {
-	privKey, err := wgtypes.ParseKey(r.PrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %s", err)
+	privateKeys := make([]wgtypes.Key, 0)
+	for _, t := range r.Transport {
+		privateKey, err := wgtypes.ParseKey(t.PrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse private key: %s", err)
+		}
+		privateKeys = append(privateKeys, privateKey)
 	}
 
-	peers, err := NewPeers(r.Peers, privKey.PublicKey().String())
+	peers, err := NewPeers(r.Peers, privateKeys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load peers: %s", err)
 	}
-
 	var links []misc.Link
 	for _, t := range r.Transport {
 		transport := t
 		transport.AddressFamily = misc.NewAF(transport.AddressFamily)
+		privKey, _ := wgtypes.ParseKey(transport.PrivateKey)
+
+		if transport.InnerAddress == "" {
+			transport.InnerAddress = misc.NewLLAddrFromKey(privKey.PublicKey().String() + transport.AddressFamily + "wireguard").String()
+		}
+
+		innerIP, _, err := net.ParseCIDR(transport.InnerAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse inner address in %s : %s", transport.InnerAddress, err)
+		}
+
+		wgPeers := make([]wgtypes.PeerConfig, 0)
+		fdb := make([]netlink.Neigh, 0)
+
 		for _, p := range peers {
 			peer := p
 			pubKey, err := wgtypes.ParseKey(peer.PublicKey)
@@ -40,63 +59,92 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 				zap.S().Warnf("failed to parse peer public key: %s, ignoring peer", err)
 				continue
 			}
-			for _, e := range peer.Endpoint {
-				endpoint := e
-				if transport.AddressFamily != misc.NewAF(endpoint.AddressFamily) {
-					continue
-				}
-				var address net.IP
-				resolved, err := net.ResolveIPAddr(transport.AddressFamily, endpoint.Address)
-				if err != nil || resolved.IP == nil {
-					zap.S().Debugf("peer address %s resolve failed in address family %s, falling back to localhost",
-						endpoint.Address, transport.AddressFamily)
-					switch transport.AddressFamily {
-					case "ip4":
-						address = net.ParseIP("127.0.0.1")
-					default:
-						address = net.ParseIP("::1")
-					}
-				} else {
-					zap.S().Debugf("peer address %s resolved as %s in address family %s",
-						endpoint.Address, resolved.IP, transport.AddressFamily)
-					address = resolved.IP
-				}
-
-				var listenPort *int
-				if transport.RandomPort {
-					listenPort = nil
-				} else {
-					listenPort = &endpoint.SendPort
-				}
-
-				link := misc.Link{
-					Name: transport.IFPrefix + strconv.Itoa(endpoint.SendPort),
-					MTU:  transport.MTU,
-					Config: wgtypes.Config{
-						PrivateKey:   &privKey,
-						ListenPort:   listenPort,
-						BindAddress:  misc.ResolveBindAddress(transport.AddressFamily, transport.BindAddress),
-						FirewallMark: &transport.FwMark,
-						ReplacePeers: true,
-						Peers: []wgtypes.PeerConfig{
-							{
-								PublicKey:    pubKey,
-								Remove:       false,
-								UpdateOnly:   false,
-								PresharedKey: nil,
-								Endpoint: &net.UDPAddr{
-									IP:   address,
-									Port: transport.SendPort,
-								},
-								ReplaceAllowedIPs: true,
-								AllowedIPs:        misc.IPNetAll,
-							},
-						},
-					},
-				}
-				links = append(links, link)
+			endpoint := peer.Endpoint
+			if transport.AddressFamily != misc.NewAF(endpoint.AddressFamily) {
+				continue
 			}
+			resolved, err := net.ResolveIPAddr(transport.AddressFamily, endpoint.Address)
+			var wgEndpoint *net.UDPAddr
+			if err != nil || resolved.IP == nil {
+				zap.S().Debugf("peer address %s resolve failed in address family %s", endpoint.Address, transport.AddressFamily)
+			} else {
+				zap.S().Debugf("peer address %s resolved as %s in address family %s",
+					endpoint.Address, resolved.IP, transport.AddressFamily)
+				wgEndpoint = &net.UDPAddr{
+					IP:   resolved.IP,
+					Port: endpoint.Port,
+				}
+			}
+			peer.GenerateInnerAddress()
+			peerInnerAddress, _, err := net.ParseCIDR(peer.Endpoint.InnerAddress)
+			var allowedIPs net.IPNet
+			if peerInnerAddress.To4() == nil {
+				allowedIPs = net.IPNet{
+					IP:   peerInnerAddress,
+					Mask: net.CIDRMask(128, 128),
+				}
+			}
+			if err != nil {
+				zap.S().Debugf("peer %s parse inner address failed: %s, %s, ignore peer", endpoint.Address, endpoint.InnerAddress, err)
+				continue
+			}
+			p := wgtypes.PeerConfig{
+				PublicKey:         pubKey,
+				Remove:            false,
+				UpdateOnly:        false,
+				PresharedKey:      nil,
+				Endpoint:          wgEndpoint,
+				ReplaceAllowedIPs: true,
+				AllowedIPs:        []net.IPNet{allowedIPs},
+			}
+			wgPeers = append(wgPeers, p)
+			n := netlink.Neigh{
+				Family:       unix.AF_BRIDGE,
+				IP:           peerInnerAddress,
+				HardwareAddr: peer.GenerateMac(),
+				Flags:        netlink.NTF_SELF,
+				State:        netlink.NUD_PERMANENT,
+			}
+			fdb = append(fdb, n)
+			n = netlink.Neigh{
+				Family:       unix.AF_BRIDGE,
+				IP:           peerInnerAddress,
+				HardwareAddr: net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+				Flags:        netlink.NTF_SELF,
+				State:        netlink.NUD_PERMANENT,
+			}
+			fdb = append(fdb, n)
 		}
+		port := transport.Port
+		link := misc.Link{
+			Name: transport.IFPrefix + "wg",
+			Type: "wireguard",
+			MTU:  transport.MTU,
+			Config: wgtypes.Config{
+				PrivateKey:   &privKey,
+				ListenPort:   &port,
+				BindAddress:  misc.ResolveBindAddress(transport.AddressFamily, transport.BindAddress),
+				FirewallMark: &transport.FwMark,
+				ReplacePeers: true,
+				Peers:        wgPeers,
+			},
+			Address: transport.InnerAddress,
+		}
+		if transport.Mac == "" {
+			transport.Mac = misc.NewMacFromKey(privKey.PublicKey().String() + transport.AddressFamily).String()
+		}
+		zap.S().Debugf("local mac: %s from %s", transport.Mac, privKey.PublicKey().String()+transport.AddressFamily)
+		vxlink := misc.Link{
+			Name:    transport.IFPrefix + "vxlan",
+			Type:    "vxlan",
+			MTU:     transport.MTU - 70,
+			Mac:     transport.Mac,
+			Address: innerIP.String(),
+			VNI:     transport.VNI,
+			FDB:     fdb,
+		}
+		links = append(links, link, vxlink)
+
 	}
 	return links, nil
 }
@@ -110,7 +158,6 @@ func (r *RAIT) Sync(up bool) error {
 			return err
 		}
 	}
-
 	iso, err := isolation.NewIsolation(r.Isolation.IFGroup, r.Isolation.Transit, r.Isolation.Target)
 	if err != nil {
 		return err
@@ -118,12 +165,25 @@ func (r *RAIT) Sync(up bool) error {
 
 	var targetLinkList []misc.Link
 	for _, link := range links {
-		err = iso.LinkEnsure(link)
-		if err != nil {
-			zap.S().Warnf("failed to ensure link %s: %s, skipping", link.Name, err)
-			continue
+		if link.Type == "wireguard" {
+			err = iso.LinkEnsure(link)
+			if err != nil {
+				zap.S().Warnf("failed to ensure wireguard link %s: %s, skipping", link.Name, err)
+				continue
+			}
+			targetLinkList = append(targetLinkList, link)
 		}
-		targetLinkList = append(targetLinkList, link)
+	}
+
+	for _, link := range links {
+		if link.Type == "vxlan" {
+			err = iso.LinkEnsure(link)
+			if err != nil {
+				zap.S().Warnf("failed to ensure vxlan link %s: %s, skipping", link.Name, err)
+				continue
+			}
+			targetLinkList = append(targetLinkList, link)
+		}
 	}
 
 	currentLinkList, err := iso.LinkList()
@@ -132,7 +192,17 @@ func (r *RAIT) Sync(up bool) error {
 	}
 
 	for _, link := range currentLinkList {
-		if !misc.LinkIn(targetLinkList, link) {
+		if link.Type == "vxlan" && !misc.LinkIn(targetLinkList, link) {
+			err = iso.LinkAbsent(link)
+			if err != nil {
+				zap.S().Warnf("failed to remove link %s: %s, skipping", link.Name, err)
+				continue
+			}
+		}
+	}
+
+	for _, link := range currentLinkList {
+		if link.Type == "wireguard" && !misc.LinkIn(targetLinkList, link) {
 			err = iso.LinkAbsent(link)
 			if err != nil {
 				zap.S().Warnf("failed to remove link %s: %s, skipping", link.Name, err)

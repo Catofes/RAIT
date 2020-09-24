@@ -1,7 +1,7 @@
 package isolation
 
 import (
-	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
+	"github.com/Catofes/RAIT/pkg/misc"
 )
 
 // Isolation represents a management interface for wireguard links

@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"gitlab.com/NickCao/RAIT/v3/pkg/misc"
-	"go.uber.org/zap"
 	"io"
 	"net"
 	"strings"
+
+	"github.com/Catofes/RAIT/pkg/misc"
+
+	"go.uber.org/zap"
 )
 
 func (b *Babeld) WriteCommand(command string) (*bytes.Buffer, error) {
