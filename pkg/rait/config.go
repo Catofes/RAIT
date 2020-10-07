@@ -41,10 +41,11 @@ type Isolation struct {
 }
 
 type Babeld struct {
-	SocketType string `hcl:"socket_type,optional"` // optional, control socket type, tcp or unix
-	SocketAddr string `hcl:"socket_addr,optional"` // optional, control socket address
-	Param      string `hcl:"param,optional"`       // optional, interfaces params
-	ExtraCmd   string `hcl:"extra_cmd,optional"`   // optional, additional command passed to socket at the end of sync
+	SocketType     string   `hcl:"socket_type,optional"`     // optional, control socket type, tcp or unix
+	SocketAddr     string   `hcl:"socket_addr,optional"`     // optional, control socket address
+	AddonInterface []string `hcl:"addon_interface,optional"` // optional, control socket address
+	Param          string   `hcl:"param,optional"`           // optional, interfaces params
+	ExtraCmd       string   `hcl:"extra_cmd,optional"`       // optional, additional command passed to socket at the end of sync
 }
 
 func NewRAIT(path string) (*RAIT, error) {

@@ -178,6 +178,9 @@ func main() {
 							target = append(target, link.Name)
 						}
 					}
+					for _, link := range r.Babeld.AddonInterface {
+						target = append(target, link)
+					}
 					return r.Babeld.LinkSync(target)
 				},
 			}},
