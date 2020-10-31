@@ -163,25 +163,28 @@ func (i *NetnsIsolation) updateWireguardIP(attrs misc.Link, h *netlink.Handle, n
 
 func (i *NetnsIsolation) update(attrs misc.Link, h *netlink.Handle, ns netns.NsHandle, t *netlink.Handle) error {
 	link, _ := h.LinkByName(attrs.Name)
-	if attrs.MTU != 0 {
+	if attrs.MTU != 0 && link.Attrs().MTU != attrs.MTU {
 		if err := h.LinkSetMTU(link, attrs.MTU); err != nil {
 			_ = h.LinkDel(link)
 			return fmt.Errorf("failed to set mtu on link %s: %s", attrs.Name, err)
 		}
 	}
 	zap.S().Debugf("link %s mtu set to %d", attrs.Name, attrs.MTU)
-
-	if err := h.LinkSetGroup(link, i.group); err != nil {
-		_ = h.LinkDel(link)
-		return fmt.Errorf("failed to set group on link %s: %s", attrs.Name, err)
+	if int(link.Attrs().Group) != i.group {
+		if err := h.LinkSetGroup(link, i.group); err != nil {
+			_ = h.LinkDel(link)
+			return fmt.Errorf("failed to set group on link %s: %s", attrs.Name, err)
+		}
+		zap.S().Debugf("link %s ifgroup set to %d", attrs.Name, i.group)
 	}
-	zap.S().Debugf("link %s ifgroup set to %d", attrs.Name, i.group)
 
-	if err := h.LinkSetUp(link); err != nil {
-		_ = h.LinkDel(link)
-		return fmt.Errorf("failed to set up link %s: %s", attrs.Name, err)
+	if link.Attrs().Flags != net.FlagUp {
+		if err := h.LinkSetUp(link); err != nil {
+			_ = h.LinkDel(link)
+			return fmt.Errorf("failed to set up link %s: %s", attrs.Name, err)
+		}
+		zap.S().Debugf("link %s set up", attrs.Name)
 	}
-	zap.S().Debugf("link %s set up", attrs.Name)
 
 	switch link.Type() {
 	case "wireguard":
