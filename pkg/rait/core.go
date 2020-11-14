@@ -3,6 +3,7 @@ package rait
 import (
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/Catofes/RAIT/pkg/isolation"
 	"github.com/Catofes/RAIT/pkg/misc"
@@ -36,6 +37,7 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 	}
 	var links []misc.Link
 	for _, t := range r.Transport {
+
 		transport := t
 		transport.AddressFamily = misc.NewAF(transport.AddressFamily)
 		privKey, _ := wgtypes.ParseKey(transport.PrivateKey)
@@ -43,7 +45,6 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 		if transport.InnerAddress == "" {
 			transport.InnerAddress = misc.NewLLAddrFromKey(privKey.PublicKey().String() + transport.AddressFamily + "wireguard").String()
 		}
-
 		innerIP, _, err := net.ParseCIDR(transport.InnerAddress)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse inner address in %s : %s", transport.InnerAddress, err)
@@ -51,70 +52,80 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 
 		wgPeers := make([]wgtypes.PeerConfig, 0)
 		fdb := make([]netlink.Neigh, 0)
+		mutex := sync.Mutex{}
+		wg := sync.WaitGroup{}
 
 		for _, p := range peers {
-			peer := p
-			pubKey, err := wgtypes.ParseKey(peer.PublicKey)
-			if err != nil {
-				zap.S().Warnf("failed to parse peer public key: %s, ignoring peer", err)
-				continue
-			}
-			endpoint := peer.Endpoint
-			if transport.AddressFamily != misc.NewAF(endpoint.AddressFamily) {
-				continue
-			}
-			resolved, err := net.ResolveIPAddr(transport.AddressFamily, endpoint.Address)
-			var wgEndpoint *net.UDPAddr
-			if err != nil || resolved.IP == nil {
-				zap.S().Debugf("peer address %s resolve failed in address family %s", endpoint.Address, transport.AddressFamily)
-			} else {
-				zap.S().Debugf("peer address %s resolved as %s in address family %s",
-					endpoint.Address, resolved.IP, transport.AddressFamily)
-				wgEndpoint = &net.UDPAddr{
-					IP:   resolved.IP,
-					Port: endpoint.Port,
+			wg.Add(1)
+			go func(peer Peer) {
+				defer wg.Done()
+				pubKey, err := wgtypes.ParseKey(peer.PublicKey)
+				if err != nil {
+					zap.S().Warnf("failed to parse peer public key: %s, ignoring peer", err)
+					return
 				}
-			}
-			peer.GenerateInnerAddress()
-			peerInnerAddress, _, err := net.ParseCIDR(peer.Endpoint.InnerAddress)
-			var allowedIPs net.IPNet
-			if peerInnerAddress.To4() == nil {
-				allowedIPs = net.IPNet{
-					IP:   peerInnerAddress,
-					Mask: net.CIDRMask(128, 128),
+				endpoint := peer.Endpoint
+				if transport.AddressFamily != misc.NewAF(endpoint.AddressFamily) {
+					return
 				}
-			}
-			if err != nil {
-				zap.S().Debugf("peer %s parse inner address failed: %s, %s, ignore peer", endpoint.Address, endpoint.InnerAddress, err)
-				continue
-			}
-			p := wgtypes.PeerConfig{
-				PublicKey:         pubKey,
-				Remove:            false,
-				UpdateOnly:        false,
-				PresharedKey:      nil,
-				Endpoint:          wgEndpoint,
-				ReplaceAllowedIPs: true,
-				AllowedIPs:        []net.IPNet{allowedIPs},
-			}
-			wgPeers = append(wgPeers, p)
-			n := netlink.Neigh{
-				Family:       unix.AF_BRIDGE,
-				IP:           peerInnerAddress,
-				HardwareAddr: peer.GenerateMac(),
-				Flags:        netlink.NTF_SELF,
-				State:        netlink.NUD_PERMANENT,
-			}
-			fdb = append(fdb, n)
-			n = netlink.Neigh{
-				Family:       unix.AF_BRIDGE,
-				IP:           peerInnerAddress,
-				HardwareAddr: net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-				Flags:        netlink.NTF_SELF,
-				State:        netlink.NUD_PERMANENT,
-			}
-			fdb = append(fdb, n)
+				var wgEndpoint *net.UDPAddr
+				if endpoint.Address != "" {
+					resolved, err := net.ResolveIPAddr(transport.AddressFamily, endpoint.Address)
+					if err != nil || resolved.IP == nil {
+						zap.S().Debugf("peer address %s resolve failed in address family %s", endpoint.Address, transport.AddressFamily)
+					} else {
+						zap.S().Debugf("peer address %s resolved as %s in address family %s", endpoint.Address, resolved.IP, transport.AddressFamily)
+						wgEndpoint = &net.UDPAddr{
+							IP:   resolved.IP,
+							Port: endpoint.Port,
+						}
+					}
+				}
+				peer.GenerateInnerAddress()
+				peerInnerAddress, _, err := net.ParseCIDR(peer.Endpoint.InnerAddress)
+				var allowedIPs net.IPNet
+				if peerInnerAddress.To4() == nil {
+					allowedIPs = net.IPNet{
+						IP:   peerInnerAddress,
+						Mask: net.CIDRMask(128, 128),
+					}
+				}
+				if err != nil {
+					zap.S().Debugf("peer %s parse inner address failed: %s, %s, ignore peer", endpoint.Address, endpoint.InnerAddress, err)
+					return
+				}
+				mutex.Lock()
+				defer mutex.Unlock()
+				p := wgtypes.PeerConfig{
+					PublicKey:         pubKey,
+					Remove:            false,
+					UpdateOnly:        false,
+					PresharedKey:      nil,
+					Endpoint:          wgEndpoint,
+					ReplaceAllowedIPs: true,
+					AllowedIPs:        []net.IPNet{allowedIPs},
+				}
+				wgPeers = append(wgPeers, p)
+				n := netlink.Neigh{
+					Family:       unix.AF_BRIDGE,
+					IP:           peerInnerAddress,
+					HardwareAddr: peer.GenerateMac(),
+					Flags:        netlink.NTF_SELF,
+					State:        netlink.NUD_PERMANENT,
+				}
+				fdb = append(fdb, n)
+				n = netlink.Neigh{
+					Family:       unix.AF_BRIDGE,
+					IP:           peerInnerAddress,
+					HardwareAddr: net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+					Flags:        netlink.NTF_SELF,
+					State:        netlink.NUD_PERMANENT,
+				}
+				fdb = append(fdb, n)
+			}(p)
 		}
+
+		wg.Wait()
 		port := transport.Port
 		link := misc.Link{
 			Name: transport.IFPrefix + "wg",
@@ -144,7 +155,6 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 			FDB:     fdb,
 		}
 		links = append(links, link, vxlink)
-
 	}
 	return links, nil
 }
