@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/Catofes/RAIT/pkg/isolation"
 	"github.com/Catofes/RAIT/pkg/misc"
@@ -56,6 +57,7 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 		wg := sync.WaitGroup{}
 
 		for _, p := range peers {
+			time.Sleep(10 * time.Millisecond)
 			wg.Add(1)
 			go func(peer Peer) {
 				defer wg.Done()
@@ -70,6 +72,7 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 				}
 				var wgEndpoint *net.UDPAddr
 				if endpoint.Address != "" {
+					zap.S().Debugf("resolv peer %s", endpoint.Address)
 					resolved, err := net.ResolveIPAddr(transport.AddressFamily, endpoint.Address)
 					if err != nil || resolved.IP == nil {
 						zap.S().Debugf("peer address %s resolve failed in address family %s", endpoint.Address, transport.AddressFamily)
