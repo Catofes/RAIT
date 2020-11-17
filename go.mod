@@ -7,7 +7,10 @@ replace golang.zx2c4.com/wireguard/wgctrl => github.com/NickCao/wgctrl-go v0.0.0
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Catofes/netlink v1.2.2
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/hashicorp/hcl/v2 v2.6.0
+	github.com/labstack/echo v3.3.10+incompatible
+	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/urfave/cli/v2 v2.2.0
 	github.com/vishvananda/netlink v1.1.1-0.20200606011528-cf6600189038 // indirect
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae

@@ -56,14 +56,22 @@ func NewPeers(path string, privateKeys []wgtypes.Key) ([]Peer, error) {
 
 	// in place filter to remove self from peers
 	n := 0
-	for _, peer := range peers {
-		for _, privateKey := range privateKeys {
-			if peer.PublicKey != privateKey.PublicKey().String() {
-				peer.GenerateMac()
-				peers[n] = peer
-				n++
-				break
+	if privateKeys != nil {
+		for _, peer := range peers {
+			for _, privateKey := range privateKeys {
+				if peer.PublicKey != privateKey.PublicKey().String() {
+					peer.GenerateMac()
+					peers[n] = peer
+					n++
+					break
+				}
 			}
+		}
+	} else {
+		for _, peer := range peers {
+			peer.GenerateMac()
+			peers[n] = peer
+			n++
 		}
 	}
 	return peers[:n], nil
