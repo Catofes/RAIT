@@ -42,10 +42,10 @@ func (s *app) get(ctx echo.Context) error {
 	}
 	infos := make(map[string]peerInfo, 0)
 	for _, peer := range peers {
-		if _, ok := infos[peer.Name]; !ok {
+		if _, ok := infos[s.generateRouteID(peer)]; !ok {
 			infos[s.generateRouteID(peer)] = peerInfo{}
 		}
-		info := infos[peer.Name]
+		info := infos[s.generateRouteID(peer)]
 		info.Name = peer.Name
 		info.RouteID = s.generateRouteID(peer)
 		peer.GenerateInnerAddress().String()
@@ -81,25 +81,57 @@ func (s *app) get(ctx echo.Context) error {
 		}
 	}
 
+	data := make(map[string]peerInfo)
+	for _, v := range infos {
+		if v.Vxlan4Address == "" {
+			v.Vxlan4Address = "-"
+		}
+		if v.Vxlan6Address == "" {
+			v.Vxlan6Address = "-"
+		}
+		if v.Wg4Address == "" {
+			v.Wg4Address = "-"
+		}
+		if v.Wg6Address == "" {
+			v.Wg6Address = "-"
+		}
+		data[v.Name] = v
+	}
+
 	t := template.Must(template.New("").Parse(`
-	<html><body><table>
-		{{range .}}<tr>
-			<td>{{.Name}}</td>
-			<td>{{.RouteID}}</td>
-			<td>{{.Wg4Address}}</td>
-			<td>{{.Wg6Address}}</td>
-			<td>{{.Vxlan4Address}}</td>
-			<td>{{.Vxlan6Address}}</td>
-			<td>
-				{{range .AnnouncedAddress}}
-					{{.}}
-					<br>
-				{{end}}
-			</td>
-		</tr>{{end}}
-	</table></body></html>`))
+<html>
+<head>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+</head>
+<body>
+<div class="container">
+<table class="table table-hover table-sm">
+</thead>
+<tr>
+<td>Name</td>
+<td>RouteID</td>
+<td>Wireguard(4/6)</td>
+<td>VXLAN(4/6)</td>
+<td>AnnouncedAddress</td>
+</tr>
+</thead>
+{{range .}}<tr>
+<td>{{.Name}}</td>
+<td>{{.RouteID}}</td>
+<td>{{.Wg4Address}}<br>{{.Wg6Address}}</td>
+<td>{{.Vxlan4Address}}<br>{{.Vxlan6Address}}</td>
+<td>
+{{range .AnnouncedAddress}}
+{{.}}
+<br>
+{{end}}
+</td>
+</tr>{{end}}
+</table>
+</div>
+</body></html>`))
 	body := bytes.Buffer{}
-	if err := t.Execute(&body, infos); err != nil {
+	if err := t.Execute(&body, data); err != nil {
 		log.Fatal(err)
 	}
 	ctx.HTML(200, body.String())
