@@ -102,7 +102,7 @@ func (s *app) get(ctx echo.Context) error {
 	if err := t.Execute(&body, infos); err != nil {
 		log.Fatal(err)
 	}
-	ctx.String(200, body.String())
+	ctx.HTML(200, body.String())
 	return nil
 }
 
