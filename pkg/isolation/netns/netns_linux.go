@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // NetnsIsolation is the recommended implementation as by the wireguard developers
@@ -236,8 +237,14 @@ func (i *NetnsIsolation) updateWireguardConf(attrs misc.Link, h *netlink.Handle,
 			return
 		}
 		defer wg.Close()
-
-		err = wg.ConfigureDevice(attrs.Name, attrs.Config)
+		oldWg, err := wg.Device(attrs.Name)
+		if err != nil {
+			_ = h.LinkDel(link)
+			err = fmt.Errorf("failed to get wireguard old config: %s", err)
+			return
+		}
+		diff := i.wireguardConfDiff(attrs.Config, oldWg)
+		err = wg.ConfigureDevice(attrs.Name, diff)
 		if err != nil {
 			_ = h.LinkDel(link)
 			err = fmt.Errorf("failed to configure wireguard interface %s: %s", attrs.Name, err)
@@ -247,6 +254,58 @@ func (i *NetnsIsolation) updateWireguardConf(attrs misc.Link, h *netlink.Handle,
 	}()
 	waitGroup.Wait()
 	return nil
+}
+
+func (i *NetnsIsolation) wireguardConfDiff(new wgtypes.Config, old *wgtypes.Device) wgtypes.Config {
+	result := wgtypes.Config{}
+	if !new.BindAddress.Equal(old.BindAddress) {
+		result.BindAddress = new.BindAddress
+	}
+	if new.FirewallMark != nil && *new.FirewallMark != old.FirewallMark {
+		result.FirewallMark = new.FirewallMark
+	}
+	if new.ListenPort != nil && *new.ListenPort != old.ListenPort {
+		result.ListenPort = new.ListenPort
+	}
+	if new.PrivateKey != nil && new.PrivateKey.String() != old.PrivateKey.String() {
+		result.PrivateKey = new.PrivateKey
+	}
+	newPeers := make([]wgtypes.PeerConfig, 0)
+	oldPeers := make(map[string]wgtypes.Peer, 0)
+	for _, peer := range old.Peers {
+		oldPeers[peer.PublicKey.String()] = peer
+	}
+	for _, peer := range new.Peers {
+		if oldPeer, ok := oldPeers[peer.PublicKey.String()]; ok {
+			flag := false
+			if (peer.Endpoint != nil && oldPeer.Endpoint != nil && peer.Endpoint.String() != oldPeer.Endpoint.String()) ||
+				(peer.Endpoint != nil && oldPeer.Endpoint == nil) || (peer.Endpoint == nil && oldPeer.Endpoint != nil) {
+				flag = true
+			}
+			if peer.PresharedKey != nil && peer.PresharedKey.String() != oldPeer.PresharedKey.String() {
+				flag = true
+			}
+			if flag {
+				zap.S().Debugf("wireguard update peer: %s", peer.PublicKey.String())
+				newPeers = append(newPeers, peer)
+			}
+			delete(oldPeers, peer.PublicKey.String())
+		} else {
+			zap.S().Debugf("wireguard add peer: %s", peer.PublicKey.String())
+			newPeers = append(newPeers, peer)
+		}
+	}
+	for _, peer := range oldPeers {
+		removePeer := wgtypes.PeerConfig{
+			PublicKey: peer.PublicKey,
+			Remove:    true,
+		}
+		zap.S().Debugf("wireguard remove peer: %s", peer.PublicKey.String())
+		newPeers = append(newPeers, removePeer)
+	}
+	result.ReplacePeers = false
+	result.Peers = newPeers
+	return result
 }
 
 func (i *NetnsIsolation) LinkEnsure(attrs misc.Link) (err error) {
