@@ -28,10 +28,11 @@ type Transport struct {
 	InnerAddress  string `hcl:"inner_address,optional"` //optional, interface inner ip, should not collide in a network
 	Mac           string `hcl:"mac,optional"`
 	VNI           int    `hcl:"vni"`
-	Address       string `hcl:"address,optional"`     // optional, public ip address or resolvable domain name
-	BindAddress   string `hcl:"bind_addr,optional"`   // optional, socket bind address, only has effect when -b is set
-	FwMark        int    `hcl:"fwmark,optional"`      // optional, fwmark set on out going packets
-	RandomPort    bool   `hcl:"random_port,optional"` // optional, whether to randomize listen port
+	Address       string `hcl:"address,optional"`      // optional, public ip address or resolvable domain name
+	BindAddress   string `hcl:"bind_addr,optional"`    // optional, socket bind address, only has effect when -b is set
+	FwMark        int    `hcl:"fwmark,optional"`       // optional, fwmark set on out going packets
+	RandomPort    bool   `hcl:"random_port,optional"`  // optional, whether to randomize listen port
+	WgGoInterface string `hcl:"go_interface,optional"` // optional, use userspace wireguard instead of kernel module
 }
 
 type Isolation struct {

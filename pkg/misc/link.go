@@ -7,14 +7,15 @@ import (
 
 // Link represents a single link managed by isolation
 type Link struct {
-	Name    string
-	Type    string
-	MTU     int
-	Address string
-	Mac     string
-	VNI     int
-	FDB     []netlink.Neigh
-	Config  wgtypes.Config
+	Name          string
+	Type          string
+	MTU           int
+	Address       string
+	Mac           string
+	VNI           int
+	FDB           []netlink.Neigh
+	Config        wgtypes.Config
+	WgGoInterface string
 }
 
 func LinkString(links []Link) (stringed []string) {

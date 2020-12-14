@@ -2,6 +2,7 @@ package misc
 
 import (
 	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"net"
@@ -48,13 +49,16 @@ func NewLLAddrFromMac(mac net.HardwareAddr) *netlink.Addr {
 	digits[3] = 0xff
 	digits[4] = 0xfe
 	digits[0] = digits[0] ^ 2
-	var parts string
-	for i := 0; i < 8; i += 2 {
-		parts += ":"
-		parts += fmt.Sprintf("%x", digits[i])
-		parts += fmt.Sprintf("%x", digits[i+1])
-	}
-	addr, _ := netlink.ParseAddr("fe80:" + parts + "/64")
+	//var parts string
+	part := hex.EncodeToString(digits[:])
+	addrString := fmt.Sprintf("fe80::%s:%s:%s:%s/64", part[0:4], part[4:8], part[8:12], part[12:16])
+	// for i := 0; i < 8; i += 2 {
+	// 	parts += ":"
+	// 	parts += fmt.Sprintf("%x", digits[i])
+	// 	parts += fmt.Sprintf("%x", digits[i+1])
+	// }
+	//addr, _ := netlink.ParseAddr("fe80:" + parts + "/64")
+	addr, _ := netlink.ParseAddr(addrString)
 	return addr
 }
 

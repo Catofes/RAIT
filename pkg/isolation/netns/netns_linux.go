@@ -39,6 +39,9 @@ func NewNetnsIsolation(group int, transit, target string) (*NetnsIsolation, erro
 func (i *NetnsIsolation) create(attrs misc.Link, h *netlink.Handle, ns netns.NsHandle, t *netlink.Handle) error {
 	switch attrs.Type {
 	case "wireguard":
+		if attrs.WgGoInterface != "" {
+			return fmt.Errorf("wireguard-go %s interface not exist. exist", attrs.WgGoInterface)
+		}
 		link := &netlink.Wireguard{
 			LinkAttrs: netlink.LinkAttrs{
 				Name:  attrs.Name,
@@ -121,6 +124,7 @@ func (i *NetnsIsolation) updateVXLANNeigh(attrs misc.Link, h *netlink.Handle, ns
 			viaIf, err := h.LinkByName(strings.TrimRight(attrs.Name, "vxlan") + "wg")
 			if err != nil {
 				zap.S().Debugf("find fdb viaIf for %s failed, err", neigh.HardwareAddr, err)
+				continue
 			}
 			neigh.ViaIfIndex = viaIf.Attrs().Index
 		}
@@ -195,6 +199,17 @@ func (i *NetnsIsolation) update(attrs misc.Link, h *netlink.Handle, ns netns.NsH
 		if err := i.updateWireguardConf(attrs, h, ns, t); err != nil {
 			return err
 		}
+	case "tun":
+		fallthrough
+	case "tuntap":
+		if link.Attrs().Name == attrs.WgGoInterface {
+			if err := i.updateWireguardIP(attrs, h, ns, t); err != nil {
+				return err
+			}
+			if err := i.updateWireguardConf(attrs, h, ns, t); err != nil {
+				return err
+			}
+		}
 	case "vxlan":
 		if err := i.updateVXLANNeigh(attrs, h, ns, t); err != nil {
 			return err
@@ -208,6 +223,10 @@ func (i *NetnsIsolation) update(attrs misc.Link, h *netlink.Handle, ns netns.NsH
 }
 
 func (i *NetnsIsolation) delete(attrs misc.Link, h *netlink.Handle, ns netns.NsHandle, t *netlink.Handle) error {
+	if attrs.WgGoInterface != "" {
+		zap.S().Warnf("delete wireguard go interface, ignore")
+		return nil
+	}
 	link, _ := h.LinkByName(attrs.Name)
 	if err := h.LinkDel(link); err != nil {
 		return fmt.Errorf("failed to remove link %s: %s", attrs.Name, err)
@@ -329,13 +348,13 @@ func (i *NetnsIsolation) LinkEnsure(attrs misc.Link) (err error) {
 
 	link, err := targetHandle.LinkByName(attrs.Name)
 	if err == nil {
-		if link.Type() == "wireguard" || link.Type() == "vxlan" {
+		if link.Type() == "wireguard" || link.Type() == "vxlan" ||
+			((link.Type() == "tuntap" || link.Type() == "tun") && attrs.WgGoInterface != "") {
 			zap.S().Debugf("link %s already exists, skipping creation", attrs.Name)
 			return i.update(attrs, targetHandle, targetNetns, transitHandle)
-		} else {
-			zap.S().Debugf("link %s already exists but is of wrong type, removing", attrs.Name)
-			return i.delete(attrs, targetHandle, targetNetns, transitHandle)
 		}
+		zap.S().Debugf("link %s already exists but is of wrong type: %s, removing", attrs.Name, link.Type())
+		return i.delete(attrs, targetHandle, targetNetns, transitHandle)
 	} else if _, ok := err.(netlink.LinkNotFoundError); !ok {
 		return fmt.Errorf("failed to get link %s: %s", attrs.Name, err)
 	} else {
@@ -353,12 +372,14 @@ func (i *NetnsIsolation) LinkAbsent(attrs misc.Link) error {
 		return err
 	}
 	defer targetHandle.Delete()
-
 	link, err := targetHandle.LinkByName(attrs.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get link %s: %s", attrs.Name, err)
 	}
-
+	if attrs.WgGoInterface != "" {
+		zap.S().Warnf("delete wireguard go interface, ignore")
+		return nil
+	}
 	err = targetHandle.LinkDel(link)
 	if err != nil {
 		return fmt.Errorf("failed to delete link %s: %s", attrs.Name, err)
@@ -381,7 +402,8 @@ func (i *NetnsIsolation) LinkList() ([]misc.Link, error) {
 
 	var list []misc.Link
 	for _, link := range rawList {
-		if (link.Type() == "wireguard" || link.Type() == "vxlan") && int(link.Attrs().Group) == i.group {
+		if (link.Type() == "wireguard" || link.Type() == "vxlan" || link.Type() == "tuntap" || link.Type() == "tun") &&
+			int(link.Attrs().Group) == i.group {
 			list = append(list, misc.Link{
 				Name: link.Attrs().Name,
 				Type: link.Type(),

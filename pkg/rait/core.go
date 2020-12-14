@@ -130,10 +130,15 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 
 		wg.Wait()
 		port := transport.Port
+		linkName := transport.WgGoInterface
+		if linkName == "" {
+			linkName = transport.IFPrefix + "wg"
+		}
 		link := misc.Link{
-			Name: transport.IFPrefix + "wg",
-			Type: "wireguard",
-			MTU:  transport.MTU,
+			Name:          linkName,
+			Type:          "wireguard",
+			WgGoInterface: transport.WgGoInterface,
+			MTU:           transport.MTU,
 			Config: wgtypes.Config{
 				PrivateKey:   &privKey,
 				ListenPort:   &port,
