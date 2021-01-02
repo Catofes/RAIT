@@ -173,8 +173,8 @@ func (i *NetnsIsolation) update(attrs misc.Link, h *netlink.Handle, ns netns.NsH
 			_ = h.LinkDel(link)
 			return fmt.Errorf("failed to set mtu on link %s: %s", attrs.Name, err)
 		}
+		zap.S().Debugf("link %s mtu set to %d", attrs.Name, attrs.MTU)
 	}
-	zap.S().Debugf("link %s mtu set to %d", attrs.Name, attrs.MTU)
 	if int(link.Attrs().Group) != i.group {
 		if err := h.LinkSetGroup(link, i.group); err != nil {
 			_ = h.LinkDel(link)
@@ -183,7 +183,7 @@ func (i *NetnsIsolation) update(attrs misc.Link, h *netlink.Handle, ns netns.NsH
 		zap.S().Debugf("link %s ifgroup set to %d", attrs.Name, i.group)
 	}
 
-	if link.Attrs().Flags != net.FlagUp {
+	if link.Attrs().Flags&net.FlagUp == 0 {
 		if err := h.LinkSetUp(link); err != nil {
 			_ = h.LinkDel(link)
 			return fmt.Errorf("failed to set up link %s: %s", attrs.Name, err)

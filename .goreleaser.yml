@@ -12,6 +12,8 @@ builds:
     goos:
       - linux
     main: ./cmd/rait/rait.go
+    ldflags:
+     - -s -w -X main.Version={{.Tag}}
 archives:
   - replacements:
       darwin: Darwin
