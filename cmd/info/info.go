@@ -142,7 +142,7 @@ func (s *app) generateRouteID(peer rait.Peer) string {
 	hash := md5.Sum([]byte(peer.PublicKey + "\n"))
 	id := hex.EncodeToString(hash[:])
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s",
-		id[0:2], id[2:4], id[4:6], id[6:8], id[8:10], id[10:12], id[12:14], id[12:14])
+		id[0:2], id[2:4], id[4:6], id[6:8], id[8:10], id[10:12], id[12:14], id[14:16])
 }
 
 func (s *app) run() {
