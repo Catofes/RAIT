@@ -8,7 +8,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/Catofes/RAIT/pkg/misc"
+	"github.com/Catofes/RAIT/v4/pkg/misc"
 
 	"go.uber.org/zap"
 )

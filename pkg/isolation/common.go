@@ -1,7 +1,7 @@
 package isolation
 
 import (
-	"github.com/Catofes/RAIT/pkg/misc"
+	"github.com/Catofes/RAIT/v4/pkg/misc"
 )
 
 // Isolation represents a management interface for wireguard links

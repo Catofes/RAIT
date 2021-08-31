@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Catofes/RAIT/pkg/misc"
+	"github.com/Catofes/RAIT/v4/pkg/misc"
 	"github.com/Catofes/netlink"
 	"github.com/vishvananda/netns"
 	"go.uber.org/zap"

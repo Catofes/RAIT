@@ -1,7 +1,7 @@
 package rait
 
 import (
-	"github.com/Catofes/RAIT/pkg/misc"
+	"github.com/Catofes/RAIT/v4/pkg/misc"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"

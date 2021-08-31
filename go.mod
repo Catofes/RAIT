@@ -1,4 +1,4 @@
-module github.com/Catofes/RAIT
+module github.com/Catofes/RAIT/v4
 
 go 1.14
 

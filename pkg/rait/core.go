@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Catofes/RAIT/pkg/isolation"
-	"github.com/Catofes/RAIT/pkg/misc"
+	"github.com/Catofes/RAIT/v4/pkg/isolation"
+	"github.com/Catofes/RAIT/v4/pkg/misc"
 	"github.com/Catofes/netlink"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"

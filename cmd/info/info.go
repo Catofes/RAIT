@@ -11,8 +11,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/Catofes/RAIT/pkg/misc"
-	"github.com/Catofes/RAIT/pkg/rait"
+	"github.com/Catofes/RAIT/v4/pkg/misc"
+	"github.com/Catofes/RAIT/v4/pkg/rait"
 
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"

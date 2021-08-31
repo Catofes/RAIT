@@ -3,7 +3,7 @@ package rait
 import (
 	"net"
 
-	"github.com/Catofes/RAIT/pkg/misc"
+	"github.com/Catofes/RAIT/v4/pkg/misc"
 	"github.com/hashicorp/hcl/v2"
 	"go.uber.org/zap"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
