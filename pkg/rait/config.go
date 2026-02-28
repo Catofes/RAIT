@@ -53,7 +53,7 @@ type Babeld struct {
 func NewRAIT(path string) (*RAIT, error) {
 	var r = &RAIT{
 		Peers:      "/etc/higgs/peers.conf",
-		CachePeers: "/etc/higgs/peers.cache",
+		CachePeers: "/run/higgs/peers.cache",
 		Isolation: &Isolation{
 			IFGroup: 54,
 		},

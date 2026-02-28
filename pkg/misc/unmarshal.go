@@ -20,30 +20,34 @@ type peerCache struct {
 }
 
 func loadPeerCache(path string) *peerCache {
-	if data, err := os.ReadFile(path); err != nil {
-		p := &peerCache{}
-		p.Data = make([]byte, 0)
-		if err := json.Unmarshal(data, p); err != nil {
+	p := &peerCache{}
+	p.Data = make([]byte, 0)
+	if data, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(data, p); err == nil {
 			return p
 		}
 	}
-	return nil
+	p.Etag = ""
+	return p
 }
 
 func (s *peerCache) save(path string) {
 	data, _ := json.Marshal(s)
-	os.WriteFile(path, data, 0644)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		fmt.Printf("failed to save peer cache: %s\n", err)
+	}
 }
 
 func loadURLwithCache(url, cachePath string) []byte {
-	if c := loadPeerCache(cachePath); c != nil {
+	if c := loadPeerCache(cachePath); c.Etag != "" {
+		fmt.Printf("load cache from %s\n", cachePath)
 		req, _ := http.NewRequest("GET", url, nil)
 		req.Header.Add("If-None-Match", c.Etag)
-		if resp, err := http.DefaultClient.Do(req); err != nil {
+		if resp, err := http.DefaultClient.Do(req); err == nil {
 			defer resp.Body.Close()
 			switch resp.StatusCode {
 			case http.StatusNotModified:
-				fmt.Printf("load url from %s success: %s", url, resp.Status)
+				fmt.Printf("load url from %s success: %s\n", url, resp.Status)
 				return c.Data
 			case http.StatusOK:
 				c.Etag = resp.Header.Get("ETag")
@@ -52,19 +56,20 @@ func loadURLwithCache(url, cachePath string) []byte {
 				if c.Etag != "" {
 					c.save(cachePath)
 				}
-				fmt.Printf("load url from %s success: %s", url, resp.Status)
+				fmt.Printf("load url from %s success: %s\n", url, resp.Status)
 				return c.Data
 			default:
-				fmt.Printf("failed to load url from %s: %s, load from cache", url, resp.Status)
+				fmt.Printf("failed to load url from %s: %s, load from cache\n", url, resp.Status)
 				return c.Data
 			}
 		} else {
-			fmt.Printf("failed to load url from %s: %s, load from cache", url, err)
+			fmt.Printf("failed to load url from %s: %s, load from cache\n", url, err)
 			return c.Data
 		}
 	} else {
+		fmt.Printf("cache miss, load from %s\n", url)
 		req, _ := http.NewRequest("GET", url, nil)
-		if resp, err := http.DefaultClient.Do(req); err != nil {
+		if resp, err := http.DefaultClient.Do(req); err == nil {
 			defer resp.Body.Close()
 			switch resp.StatusCode {
 			case http.StatusOK:
@@ -74,14 +79,14 @@ func loadURLwithCache(url, cachePath string) []byte {
 				if c.Etag != "" {
 					c.save(cachePath)
 				}
-				fmt.Printf("load url from %s success: %s", url, resp.Status)
+				fmt.Errorf("load url from %s success: %s", url, resp.Status)
 				return c.Data
 			default:
-				fmt.Printf("failed to load url from %s: %s, cache empty", url, resp.Status)
+				fmt.Errorf("failed to load url from %s: %s, cache empty", url, resp.Status)
 				return nil
 			}
 		} else {
-			fmt.Printf("failed to load url from %s: %s, cache empty", url, err)
+			fmt.Errorf("failed to load url from %s: %s, cache empty", url, err)
 			return nil
 		}
 	}
