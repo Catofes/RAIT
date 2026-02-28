@@ -47,9 +47,9 @@ type Endpoint struct {
 	Address       string `hcl:"address,optional"`       // optional, ip address or resolvable domain name
 }
 
-func NewPeers(path string, privateKeys []wgtypes.Key) ([]Peer, error) {
+func NewPeers(path, cachePath string, privateKeys []wgtypes.Key) ([]Peer, error) {
 	var peersTmp = &Peers{}
-	if err := misc.UnmarshalHCL(path, peersTmp); err != nil {
+	if err := misc.LoadPeers(path, cachePath, peersTmp); err != nil {
 		return nil, err
 	}
 	peers := peersTmp.Peers

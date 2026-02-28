@@ -32,7 +32,7 @@ func (r *RAIT) Load() ([]misc.Link, error) {
 		privateKeys = append(privateKeys, privateKey)
 	}
 
-	peers, err := NewPeers(r.Peers, privateKeys)
+	peers, err := NewPeers(r.Peers, r.CachePeers, privateKeys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load peers: %s", err)
 	}

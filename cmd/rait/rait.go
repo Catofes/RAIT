@@ -21,7 +21,13 @@ var commonFlags = []cli.Flag{
 		Name:    "config",
 		Usage:   "path to configuration file",
 		Aliases: []string{"c"},
-		Value:   "/etc/rait/rait.conf",
+		Value:   "/etc/higgs/rait.conf",
+	},
+	&cli.StringFlag{
+		Name:    "cache",
+		Usage:   "path to cache peer file",
+		Aliases: []string{"t"},
+		Value:   "/run/higgs/peer.cache",
 	},
 	&cli.BoolFlag{
 		Name:    "debug",

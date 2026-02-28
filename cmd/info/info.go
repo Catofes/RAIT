@@ -35,7 +35,7 @@ type peerInfo struct {
 }
 
 func (s *app) get(ctx echo.Context) error {
-	peers, err := rait.NewPeers(s.url, nil)
+	peers, err := rait.NewPeers(s.url, "", nil)
 	if err != nil {
 		ctx.Error(err)
 		return err

@@ -11,12 +11,13 @@ import (
 
 // RAIT is the model corresponding to rait.conf, for default value of fields, see NewRAIT
 type RAIT struct {
-	Name      string      `hcl:"name,optional"`   // optional, human readable node name
-	Peers     string      `hcl:"peers,attr"`      // mandatory, list of peers, in hcl format
-	Transport []Transport `hcl:"transport,block"` // mandatory, underlying transport for wireguard sockets
-	Isolation *Isolation  `hcl:"isolation,block"` // optional, params for the separation of underlay and overlay
-	Babeld    *Babeld     `hcl:"babeld,block"`    // optional, integration with babeld
-	Remarks   hcl.Body    `hcl:"remarks,remain"`  // optional, additional information
+	Name       string      `hcl:"name,optional"` // optional, human readable node name
+	Peers      string      `hcl:"peers,attr"`    // mandatory, list of peers, in hcl format
+	CachePeers string      `hcl:"cache_peers,optional"`
+	Transport  []Transport `hcl:"transport,block"` // mandatory, underlying transport for wireguard sockets
+	Isolation  *Isolation  `hcl:"isolation,block"` // optional, params for the separation of underlay and overlay
+	Babeld     *Babeld     `hcl:"babeld,block"`    // optional, integration with babeld
+	Remarks    hcl.Body    `hcl:"remarks,remain"`  // optional, additional information
 }
 
 type Transport struct {
@@ -51,7 +52,8 @@ type Babeld struct {
 
 func NewRAIT(path string) (*RAIT, error) {
 	var r = &RAIT{
-		Peers: "/etc/rait/peers.conf",
+		Peers:      "/etc/higgs/peers.conf",
+		CachePeers: "/etc/higgs/peers.cache",
 		Isolation: &Isolation{
 			IFGroup: 54,
 		},
